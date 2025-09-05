@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_service/audio_service.dart';
 import '../models/music_model.dart';
-import '../services/audio_service.dart';
+import '../services/audio_service.dart' as yt_audio_service;
+import '../services/background_audio_handler.dart';
 
 class MusicPlayerController extends ChangeNotifier {
   static final MusicPlayerController _instance = MusicPlayerController._internal();
@@ -9,6 +11,7 @@ class MusicPlayerController extends ChangeNotifier {
   MusicPlayerController._internal() {
     print('🎵 Initializing MusicPlayerController');
     _setupAudioPlayer();
+  _initBackgroundAudio();
     
     // Make sure we get onAudioComplete callbacks
     _audioPlayer.playbackEventStream.listen((event) {
@@ -19,6 +22,8 @@ class MusicPlayerController extends ChangeNotifier {
   }
 
   final AudioPlayer _audioPlayer = AudioPlayer();
+  AudioHandler? _audioHandler;
+  Future<AudioHandler?>? _audioHandlerInit;
   
   MusicTrack? _currentTrack;
   List<MusicTrack> _queue = [];
@@ -49,6 +54,12 @@ class MusicPlayerController extends ChangeNotifier {
   // Set a callback for auto-advance notifications
   void setAutoAdvanceCallback(Function(String)? callback) {
     _onAutoAdvance = callback;
+  }
+
+  Future<AudioHandler?> _ensureAudioHandler() async {
+    if (_audioHandler != null) return _audioHandler;
+    _audioHandlerInit ??= _initBackgroundAudio().then((_) => _audioHandler);
+    return _audioHandlerInit;
   }
   
   // Handle track completion, auto-advance if possible
@@ -163,11 +174,25 @@ class MusicPlayerController extends ChangeNotifier {
     });
   }
 
+  Future<void> _initBackgroundAudio() async {
+    try {
+      _audioHandler = await initBackgroundAudio(
+        _audioPlayer,
+        onSkipNext: () async => await playNext(),
+        onSkipPrevious: () async => await playPrevious(),
+      );
+      print('✅ AudioHandler initialized');
+    } catch (e) {
+      print('❌ Failed to init AudioHandler: $e');
+    }
+  }
+
   Future<void> playTrack(MusicTrack track) async {
     try {
       print('⏯️ Starting playback of track: ${track.title}');
       _setLoading(true, 'Loading music...');
       _errorMessage = null;
+  await _ensureAudioHandler();
       _currentTrack = track;
       
       // If this track is not in the current queue, create a new queue with just this track
@@ -193,7 +218,7 @@ class MusicPlayerController extends ChangeNotifier {
       _setLoading(true, 'Getting audio stream...');
       
       // Get audio URL using youtube_explode_dart
-      final audioUrl = await AudioService.getAudioUrl(videoId);
+  final audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
       print('🔗 Got audio URL of length: ${audioUrl.length}');
       
       _setLoading(true, 'Preparing playback...');
@@ -204,7 +229,11 @@ class MusicPlayerController extends ChangeNotifier {
         await _audioPlayer.stop();
       }
       
-      // Set the audio source
+  // Prepare lock screen metadata early (even before play)
+  final preItem = _toMediaItem(track);
+  await _audioHandler?.updateMediaItem(preItem);
+
+  // Set the audio source
       print('🔊 Setting audio URL');
       await _audioPlayer.setUrl(audioUrl);
       
@@ -212,6 +241,10 @@ class MusicPlayerController extends ChangeNotifier {
       // Start playback
       await _audioPlayer.play();
       print('✅ Playback started successfully');
+
+  // Update metadata with actual duration after setUrl
+  final item = _toMediaItem(track, duration: _audioPlayer.duration);
+  await _audioHandler?.updateMediaItem(item);
       
     } catch (e) {
       _setLoading(false, '');
@@ -225,9 +258,16 @@ class MusicPlayerController extends ChangeNotifier {
     if (index < 0 || index >= queue.length) return;
     
     print('Setting queue with ${queue.length} tracks, playing index $index');
+  await _ensureAudioHandler();
     _queue = List.from(queue);
     _currentIndex = index;
     final track = _queue[index];
+
+    // Update queue for system UI
+    final items = _queue.map((t) => _toMediaItem(t)).toList();
+    try {
+      await _audioHandler?.updateQueue(items);
+    } catch (_) {}
     
     // Stop current track first
     await _audioPlayer.stop();
@@ -251,7 +291,7 @@ class MusicPlayerController extends ChangeNotifier {
       // Make sure we stop the current playback before starting a new one
       await _audioPlayer.stop();
       
-      // Start playing the next track
+  // Start playing the next track
       await playTrack(nextTrack);
       
       print('Successfully started playing next track: ${nextTrack.title}');
@@ -329,7 +369,8 @@ class MusicPlayerController extends ChangeNotifier {
   }
 
   Future<void> stop() async {
-    await _audioPlayer.stop();
+  await _audioPlayer.stop();
+  await _audioHandler?.stop();
     _currentTrack = null;
     _isPlaying = false;
     _position = Duration.zero;
@@ -397,6 +438,21 @@ class MusicPlayerController extends ChangeNotifier {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  MediaItem _toMediaItem(MusicTrack t, {Duration? duration}) {
+    return MediaItem(
+      id: t.id.isNotEmpty ? t.id : t.webpageUrl,
+      title: t.title,
+      artist: t.artist,
+      album: t.album,
+      duration: duration ?? (t.duration > 0 ? Duration(seconds: t.duration) : null),
+      artUri: t.thumbnail.isNotEmpty ? Uri.tryParse(t.thumbnail) : null,
+      extras: {
+        'webpageUrl': t.webpageUrl,
+        'source': t.source,
+      },
+    );
   }
 
   double get progress {

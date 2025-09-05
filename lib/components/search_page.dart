@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/music_model.dart';
 import '../services/music_service.dart';
+import '../services/suggestion_service.dart';
 import '../controllers/music_player_controller.dart';
+import 'dart:async';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -12,15 +14,78 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   List<MusicTrack> _searchResults = [];
+  List<String> _suggestions = [];
   bool _isSearching = false;
+  bool _isLoadingSuggestions = false;
+  bool _showSuggestions = false;
   String? _errorMessage;
   String _lastQuery = '';
+  Timer? _debounceTimer;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadSuggestions(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _suggestions = [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingSuggestions = true;
+      _showSuggestions = true;
+    });
+
+    try {
+      final suggestions = await SuggestionService.getSuggestions(query);
+      setState(() {
+        _suggestions = suggestions;
+        _isLoadingSuggestions = false;
+      });
+    } catch (e) {
+      setState(() {
+        _suggestions = [];
+        _isLoadingSuggestions = false;
+      });
+      print('Error loading suggestions: $e');
+    }
+  }
+
+  void _onSearchTextChanged(String value) {
+    _debounceTimer?.cancel();
+    
+    if (value.isEmpty) {
+      setState(() {
+        _showSuggestions = false;
+        _suggestions = [];
+      });
+      return;
+    }
+
+    // Show suggestions after 300ms of no typing
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted && _searchController.text == value) {
+        _loadSuggestions(value);
+      }
+    });
+  }
+
+  void _selectSuggestion(String suggestion) {
+    _searchController.text = suggestion;
+    setState(() {
+      _showSuggestions = false;
+    });
+    _performSearch(suggestion);
   }
 
   Future<void> _performSearch(String query) async {
@@ -29,6 +94,7 @@ class _SearchPageState extends State<SearchPage> {
         _searchResults = [];
         _errorMessage = null;
         _lastQuery = '';
+        _showSuggestions = false;
       });
       return;
     }
@@ -37,6 +103,7 @@ class _SearchPageState extends State<SearchPage> {
       _isSearching = true;
       _errorMessage = null;
       _lastQuery = query;
+      _showSuggestions = false; // Hide suggestions when searching
     });
 
     try {
@@ -56,74 +123,109 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    return GestureDetector(
+      onTap: () {
+        // Hide suggestions when tapping outside
+        if (_showSuggestions) {
+          setState(() {
+            _showSuggestions = false;
+          });
+        }
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
         backgroundColor: Colors.black,
-        title: const Text(
-          'Search',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          title: const Text(
+            'Search',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'monospace',
+            ),
           ),
+          centerTitle: true,
+          elevation: 0,
         ),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Search input
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              // Search input
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C1E),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                decoration: const InputDecoration(
-                  hintText: 'Search for music...',
-                  hintStyle: TextStyle(
-                    color: Color(0xFF666666),
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontFamily: 'monospace',
                   ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Color(0xFF666666),
+                  decoration: InputDecoration(
+                    hintText: 'Search for music...',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF666666),
+                      fontFamily: 'monospace',
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: Color(0xFF666666),
+                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: Color(0xFF666666)),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _showSuggestions = false;
+                                _searchResults = [];
+                                _suggestions = [];
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                   ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-                onSubmitted: _performSearch,
-                onChanged: (value) {
-                  // Debounce search - search after user stops typing for 500ms
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    if (_searchController.text == value && value.isNotEmpty) {
-                      _performSearch(value);
+                  onSubmitted: (value) {
+                    setState(() {
+                      _showSuggestions = false;
+                    });
+                    _performSearch(value);
+                  },
+                  onChanged: _onSearchTextChanged,
+                  onTap: () {
+                    if (_searchController.text.isNotEmpty && _suggestions.isNotEmpty) {
+                      setState(() {
+                        _showSuggestions = true;
+                      });
                     }
-                  });
-                },
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            // Search results or placeholder content
-            Expanded(child: _buildContent()),
-          ],
+              const SizedBox(height: 16),
+              // Suggestions or Search results or placeholder content
+              Expanded(child: _buildContent()),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildContent() {
+    // Show suggestions when typing and we have suggestions
+    if (_showSuggestions && (_suggestions.isNotEmpty || _isLoadingSuggestions)) {
+      return _buildSuggestions();
+    }
+    
     if (_isSearching) {
       return const Center(
         child: Column(
@@ -216,6 +318,86 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+          child: Text(
+            'Search suggestions',
+            style: TextStyle(
+              color: Color(0xFF999999),
+              fontSize: 14,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+        Expanded(
+          child: _isLoadingSuggestions
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFB91C1C),
+                    strokeWidth: 2,
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _suggestions.length,
+                  physics: const BouncingScrollPhysics(),
+                  itemBuilder: (context, index) {
+                    final suggestion = _suggestions[index];
+                    return GestureDetector(
+                      onTap: () => _selectSuggestion(suggestion),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Color(0xFF1A1A1A),
+                              width: 0.5,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.search,
+                              color: Color(0xFF666666),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                suggestion,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontFamily: 'monospace',
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.north_west,
+                              color: Color(0xFF666666),
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 

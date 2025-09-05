@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import 'components/home_page.dart';
+import 'dart:io' show Platform;
+import 'package:permission_handler/permission_handler.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Request notifications on Android 13+ so media notification can show
+  if (Platform.isAndroid) {
+    try {
+      await Permission.notification.request();
+    } catch (_) {}
+  }
   runApp(const MyApp());
 }
 
