@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'downloads_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -24,73 +25,20 @@ class SettingsPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         children: [
           _buildSettingsSection(
-            title: 'Playback',
-            items: [
-              _buildSettingsItem(
-                icon: Icons.volume_up,
-                title: 'Audio Quality',
-                subtitle: 'High',
-                onTap: () {},
-              ),
-              _buildSettingsItem(
-                icon: Icons.repeat,
-                title: 'Repeat Mode',
-                subtitle: 'Off',
-                onTap: () {},
-              ),
-              _buildSettingsItem(
-                icon: Icons.shuffle,
-                title: 'Shuffle',
-                subtitle: 'Disabled',
-                onTap: () {},
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSettingsSection(
             title: 'General',
             items: [
               _buildSettingsItem(
-                icon: Icons.notifications,
-                title: 'Notifications',
-                subtitle: 'Enabled',
-                onTap: () {},
-              ),
-              _buildSettingsItem(
-                icon: Icons.download,
-                title: 'Download Quality',
-                subtitle: 'High',
-                onTap: () {},
-              ),
-              _buildSettingsItem(
                 icon: Icons.storage,
-                title: 'Storage',
+                title: 'Downloads',
                 subtitle: 'Manage downloads',
-                onTap: () {},
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSettingsSection(
-            title: 'About',
-            items: [
-              _buildSettingsItem(
-                icon: Icons.info,
-                title: 'Version',
-                subtitle: '1.0.0',
-                onTap: () {},
-              ),
-              _buildSettingsItem(
-                icon: Icons.help,
-                title: 'Help & Support',
-                subtitle: 'Get help',
-                onTap: () {},
-              ),
-              _buildSettingsItem(
-                icon: Icons.privacy_tip,
-                title: 'Privacy Policy',
-                subtitle: 'Read our policy',
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DownloadsPage(),
+                    ),
+                  );
+                },
               ),
             ],
           ),

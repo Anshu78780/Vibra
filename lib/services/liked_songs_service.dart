@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/music_model.dart';
+import 'user_playlist_service.dart';
 
 class LikedSongsService {
   static const String _storageKey = 'liked_songs';
@@ -19,6 +20,9 @@ class LikedSongsService {
       }
       
       print('Loaded ${_likedSongs.length} liked songs from cache');
+      
+      // Also load user playlists
+      await UserPlaylistService.loadCachedPlaylists();
     } catch (e) {
       print('Error loading liked songs from cache: $e');
     }

@@ -6,6 +6,7 @@ import '../services/audio_service.dart' as yt_audio_service;
 import '../services/background_audio_handler.dart';
 import '../services/recommendation_service.dart';
 import '../services/preloading_service.dart';
+import '../services/download_service.dart';
 
 class MusicPlayerController extends ChangeNotifier {
   static final MusicPlayerController _instance = MusicPlayerController._internal();
@@ -13,7 +14,8 @@ class MusicPlayerController extends ChangeNotifier {
   MusicPlayerController._internal() {
     print('🎵 Initializing MusicPlayerController');
     _setupAudioPlayer();
-  _initBackgroundAudio();
+    _initBackgroundAudio();
+    _initDownloadService();
     
     // Make sure we get onAudioComplete callbacks
     _audioPlayer.playbackEventStream.listen((event) {
@@ -37,6 +39,8 @@ class MusicPlayerController extends ChangeNotifier {
   Duration _position = Duration.zero;
   String? _errorMessage;
   Function(String)? _onAutoAdvance; // Callback for auto-advance notifications
+  bool _isHandlingCompletion = false; // Flag to prevent duplicate completion handling
+  String? _lastRecommendationTrackId; // Track the last track for which recommendations were loaded
 
   // Getters
   MusicTrack? get currentTrack => _currentTrack;
@@ -67,6 +71,14 @@ class MusicPlayerController extends ChangeNotifier {
   // Handle track completion, auto-advance if possible
   void _handleTrackCompletion() {
     print('🎵 Handling track completion');
+    
+    // Prevent duplicate completion handling
+    if (_isHandlingCompletion) {
+      print('🔄 Already handling completion, skipping duplicate call');
+      return;
+    }
+    
+    _isHandlingCompletion = true;
     _isPlaying = false;
     _position = Duration.zero;
     
@@ -76,9 +88,13 @@ class MusicPlayerController extends ChangeNotifier {
         final nextTrack = _queue[_currentIndex + 1];
         print('✅✅✅ Auto-playing next track: ${nextTrack.title}');
         _onAutoAdvance?.call('Playing next: ${nextTrack.title}');
-        _playNext();
+        _playNext().then((_) {
+          // Reset the flag after playback starts
+          _isHandlingCompletion = false;
+        });
       } else {
         print('Queue completed, no more tracks');
+        _isHandlingCompletion = false;
         notifyListeners();
       }
     });
@@ -201,11 +217,21 @@ class MusicPlayerController extends ChangeNotifier {
     }
   }
 
+  Future<void> _initDownloadService() async {
+    try {
+      await DownloadService().initialize();
+      print('✅ DownloadService initialized');
+    } catch (e) {
+      print('❌ Failed to init DownloadService: $e');
+    }
+  }
+
   Future<void> playTrack(MusicTrack track) async {
     try {
       print('⏯️ Starting playback of track: ${track.title}');
       _setLoading(true, 'Loading music...');
       _errorMessage = null;
+      _isHandlingCompletion = false; // Reset completion flag for new track
   await _ensureAudioHandler();
       _currentTrack = track;
       
@@ -287,7 +313,11 @@ class MusicPlayerController extends ChangeNotifier {
     if (index < 0 || index >= queue.length) return;
     
     print('Setting queue with ${queue.length} tracks, playing index $index');
-  await _ensureAudioHandler();
+    await _ensureAudioHandler();
+    
+    // Reset recommendation tracking when setting a new queue
+    _lastRecommendationTrackId = null;
+    
     _queue = List.from(queue);
     _currentIndex = index;
     final track = _queue[index];
@@ -314,6 +344,9 @@ class MusicPlayerController extends ChangeNotifier {
   Future<void> playTrackWithRecommendations(MusicTrack track) async {
     try {
       print('🎵 Playing track with recommendations: ${track.title}');
+      // Reset recommendation tracking for new track
+      _lastRecommendationTrackId = null;
+      
       // Start playing the track immediately
       _queue = [track];
       _currentIndex = 0;
@@ -340,7 +373,13 @@ class MusicPlayerController extends ChangeNotifier {
         return;
       }
       
-      print('🔍 Getting recommendations for: ${track.title} (ID: $videoId)');
+      // Check if we've already loaded recommendations for this track
+      if (_lastRecommendationTrackId == videoId) {
+        print('� Recommendations already loaded for this track, skipping...');
+        return;
+      }
+      
+      print('�🔍 Getting recommendations for: ${track.title} (ID: $videoId)');
       final recommendations = await RecommendationService.getRecommendations(videoId);
       
       print('📦 Received ${recommendations.length} recommendations from API');
@@ -349,6 +388,7 @@ class MusicPlayerController extends ChangeNotifier {
         // Update the queue with recommendations (keep current track at index 0)
         final oldQueueLength = _queue.length;
         _queue = [track, ...recommendations];
+        _lastRecommendationTrackId = videoId; // Mark this track as having recommendations loaded
         print('✅ Updated queue from $oldQueueLength to ${_queue.length} tracks');
         print('📋 First 3 queue tracks:');
         for (int i = 0; i < _queue.length && i < 3; i++) {
@@ -580,6 +620,28 @@ class MusicPlayerController extends ChangeNotifier {
     if (_duration.inMilliseconds == 0) return 0.0;
     return _position.inMilliseconds / _duration.inMilliseconds;
   }
+
+  // Download functionality
+  Future<void> downloadCurrentTrack() async {
+    if (_currentTrack == null) return;
+    
+    try {
+      await DownloadService().downloadTrack(_currentTrack!);
+      print('✅ Download started for: ${_currentTrack!.title}');
+    } catch (e) {
+      print('❌ Download failed: $e');
+      _errorMessage = 'Download failed: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<bool> isCurrentTrackDownloaded() async {
+    if (_currentTrack == null) return false;
+    return await DownloadService().isDownloaded(_currentTrack!);
+  }
+
+  Stream<Map<String, double>> get downloadProgressStream => 
+      DownloadService().downloadProgressStream;
 
   @override
   void dispose() {

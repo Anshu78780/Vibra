@@ -1,3 +1,5 @@
+import '../utils/image_utils.dart';
+
 class MusicTrack {
   final String id;
   final String title;
@@ -58,9 +60,9 @@ class MusicTrack {
       extractor: json['extractor']?.toString() ?? '',
       likeCount: json['like_count'] is int ? json['like_count'] : int.tryParse(json['like_count']?.toString() ?? ''),
       liveStatus: json['live_status']?.toString() ?? 'not_live',
-      posterImage: json['poster_image']?.toString() ?? '',
+      posterImage: ImageUtils.enhanceImageQuality(json['poster_image']?.toString() ?? ''),
       source: json['source']?.toString() ?? '',
-      thumbnail: json['thumbnail']?.toString() ?? '',
+      thumbnail: ImageUtils.enhanceImageQuality(json['thumbnail']?.toString() ?? ''),
       uploadDate: json['upload_date']?.toString(),
       uploader: json['uploader']?.toString() ?? 'Unknown Uploader',
       viewCount: json['view_count'] is int ? json['view_count'] : int.tryParse(json['view_count']?.toString() ?? ''),

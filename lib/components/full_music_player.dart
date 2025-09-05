@@ -10,20 +10,39 @@ class FullMusicPlayer extends StatefulWidget {
   State<FullMusicPlayer> createState() => _FullMusicPlayerState();
 }
 
-class _FullMusicPlayerState extends State<FullMusicPlayer> {
+class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderStateMixin {
   final MusicPlayerController _controller = MusicPlayerController();
   bool _isLiked = false;
+  bool _isDownloaded = false;
+  bool _showQueue = false;
+  late AnimationController _queueAnimationController;
+  late Animation<double> _queueSlideAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onPlayerStateChanged);
     _checkIfLiked();
+    _checkIfDownloaded();
+    
+    // Initialize queue animation
+    _queueAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _queueSlideAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _queueAnimationController,
+      curve: Curves.easeInOut,
+    ));
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onPlayerStateChanged);
+    _queueAnimationController.dispose();
     super.dispose();
   }
 
@@ -31,6 +50,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
     if (mounted) {
       setState(() {});
       _checkIfLiked();
+      _checkIfDownloaded();
     }
   }
 
@@ -65,6 +85,70 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
         ),
       );
     }
+  }
+
+  void _checkIfDownloaded() async {
+    if (_controller.currentTrack != null) {
+      final isDownloaded = await _controller.isCurrentTrackDownloaded();
+      if (isDownloaded != _isDownloaded && mounted) {
+        setState(() {
+          _isDownloaded = isDownloaded;
+        });
+      }
+    }
+  }
+
+  void _downloadTrack() async {
+    if (_controller.currentTrack != null) {
+      try {
+        await _controller.downloadCurrentTrack();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Download started - check notifications for progress',
+                style: TextStyle(fontFamily: 'monospace'),
+              ),
+              backgroundColor: Color(0xFF1C1C1E),
+              duration: Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Download failed: $e',
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+              backgroundColor: const Color(0xFFB91C1C),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showQueueView() {
+    setState(() {
+      _showQueue = true;
+    });
+    _queueAnimationController.forward();
+  }
+
+  void _hideQueueView() {
+    _queueAnimationController.reverse().then((_) {
+      if (mounted) {
+        setState(() {
+          _showQueue = false;
+        });
+      }
+    });
   }
 
   @override
@@ -107,7 +191,12 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
           ),
         ],
       ),
-      body: _controller.hasTrack ? _buildPlayerContent() : _buildNoTrackContent(),
+      body: Stack(
+        children: [
+          _controller.hasTrack ? _buildPlayerContent() : _buildNoTrackContent(),
+          if (_showQueue) _buildQueueOverlay(),
+        ],
+      ),
     );
   }
 
@@ -136,73 +225,126 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
   }
 
   Widget _buildPlayerContent() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          const Spacer(),
-          // Album artwork
-          _buildAlbumArtwork(),
-          const SizedBox(height: 32),
-          // Track info
-          _buildTrackInfo(),
-          const SizedBox(height: 32),
-          // Progress bar
-          _buildProgressBar(),
-          const SizedBox(height: 32),
-          // Controls
-          _buildControls(),
-          const Spacer(),
-          // Error message
-          if (_controller.errorMessage != null) _buildErrorMessage(),
-          // Loading overlay
-          if (_controller.isLoading) _buildLoadingOverlay(),
-          // Error message
-          if (_controller.errorMessage != null) _buildErrorMessage(),
-        ],
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black,
+            const Color(0xFF1A1A1A),
+            Colors.black,
+          ],
+          stops: const [0.0, 0.3, 1.0],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const Spacer(),
+            // Album artwork
+            _buildAlbumArtwork(),
+            const SizedBox(height: 40),
+            // Track info
+            _buildTrackInfo(),
+            const SizedBox(height: 32),
+            // Progress bar
+            _buildProgressBar(),
+            const SizedBox(height: 32),
+            // Controls
+            _buildControls(),
+            const SizedBox(height: 24),
+            // Action buttons (like, download, share)
+            _buildActionButtons(),
+            const Spacer(),
+            // Error message
+            if (_controller.errorMessage != null) _buildErrorMessage(),
+            // Loading overlay
+            if (_controller.isLoading) _buildLoadingOverlay(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAlbumArtwork() {
     return Container(
-      width: 300,
-      height: 300,
+      width: 320,
+      height: 320,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            blurRadius: 20,
+            color: const Color(0xFFB91C1C).withOpacity(0.3),
+            blurRadius: 40,
+            spreadRadius: 5,
+            offset: const Offset(0, 15),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.6),
+            blurRadius: 30,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: _controller.currentTrack!.thumbnail.isNotEmpty
-            ? Image.network(
-                _controller.currentTrack!.thumbnail,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: const Color(0xFF1C1C1E),
-                    child: const Icon(
-                      Icons.music_note,
-                      color: Color(0xFF666666),
-                      size: 80,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withOpacity(0.1),
+              Colors.transparent,
+              Colors.black.withOpacity(0.1),
+            ],
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: _controller.currentTrack!.thumbnail.isNotEmpty
+              ? Image.network(
+                  _controller.currentTrack!.thumbnail,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF2A2A2E),
+                            const Color(0xFF1C1C1E),
+                          ],
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.music_note_rounded,
+                        color: Color(0xFF666666),
+                        size: 120,
+                      ),
+                    );
+                  },
+                )
+              : Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF2A2A2E),
+                        const Color(0xFF1C1C1E),
+                      ],
                     ),
-                  );
-                },
-              )
-            : Container(
-                color: const Color(0xFF1C1C1E),
-                child: const Icon(
-                  Icons.music_note,
-                  color: Color(0xFF666666),
-                  size: 80,
+                  ),
+                  child: const Icon(
+                    Icons.music_note_rounded,
+                    color: Color(0xFF666666),
+                    size: 120,
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }
@@ -210,25 +352,32 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
   Widget _buildTrackInfo() {
     return Column(
       children: [
-        Text(
-          _controller.currentTrack!.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            _controller.currentTrack!.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'monospace',
+              letterSpacing: 0.5,
+              height: 1.2,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Text(
           _controller.currentTrack!.artist,
-          style: const TextStyle(
-            color: Color(0xFF999999),
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
             fontSize: 18,
+            fontWeight: FontWeight.w500,
             fontFamily: 'monospace',
+            letterSpacing: 0.3,
           ),
           textAlign: TextAlign.center,
           maxLines: 1,
@@ -292,62 +441,371 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
   }
 
   Widget _buildControls() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildControlButton(
+            icon: Icons.skip_previous_rounded,
+            size: 52,
+            isEnabled: _controller.hasPrevious && _controller.canControl,
+            onPressed: _controller.hasPrevious && _controller.canControl
+                ? () => _controller.playPrevious()
+                : null,
+          ),
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFDC2626),
+                  Color(0xFFB91C1C),
+                  Color(0xFF991B1B),
+                ],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFB91C1C).withOpacity(0.4),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: Icon(
+                _controller.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: Colors.white,
+              ),
+              iconSize: 44,
+              onPressed: _controller.canControl
+                  ? () {
+                      if (_controller.isPlaying) {
+                        _controller.pause();
+                      } else {
+                        _controller.resume();
+                      }
+                    }
+                  : null,
+            ),
+          ),
+          _buildControlButton(
+            icon: Icons.skip_next_rounded,
+            size: 52,
+            isEnabled: _controller.hasNext && _controller.canControl,
+            onPressed: _controller.hasNext && _controller.canControl
+                ? () => _controller.playNext()
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required double size,
+    required bool isEnabled,
+    required VoidCallback? onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2E).withOpacity(0.8),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isEnabled 
+              ? const Color(0xFF3A3A3E) 
+              : const Color(0xFF2A2A2A),
+          width: 1,
+        ),
+      ),
+      child: IconButton(
+        icon: Icon(
+          icon,
+          color: isEnabled ? Colors.white : Colors.white38,
+        ),
+        iconSize: size,
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        IconButton(
-          icon: Icon(
-            Icons.skip_previous,
-            color: _controller.hasPrevious && _controller.canControl 
-                ? Colors.white 
-                : Colors.white38,
-          ),
-          iconSize: 48,
-          onPressed: _controller.hasPrevious && _controller.canControl
-              ? () {
-                  _controller.playPrevious();
-                }
-              : null,
+        _buildActionButton(
+          icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          label: _isLiked ? 'Liked' : 'Like',
+          color: _isLiked ? const Color(0xFFB91C1C) : Colors.white.withOpacity(0.8),
+          onTap: _toggleLike,
         ),
-        Container(
-          width: 80,
-          height: 80,
-          decoration: const BoxDecoration(
-            color: Color(0xFFB91C1C),
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: Icon(
-              _controller.isPlaying ? Icons.pause : Icons.play_arrow,
-              color: Colors.white,
-            ),
-            iconSize: 40,
-            onPressed: _controller.canControl
-                ? () {
-                    if (_controller.isPlaying) {
-                      _controller.pause();
-                    } else {
-                      _controller.resume();
-                    }
-                  }
-                : null,
-          ),
+        _buildActionButton(
+          icon: _isDownloaded ? Icons.download_done_rounded : Icons.download_rounded,
+          label: _isDownloaded ? 'Downloaded' : 'Download',
+          color: _isDownloaded ? Colors.green : Colors.white.withOpacity(0.8),
+          onTap: _isDownloaded ? null : _downloadTrack,
         ),
-        IconButton(
-          icon: Icon(
-            Icons.skip_next,
-            color: _controller.hasNext && _controller.canControl 
-                ? Colors.white 
-                : Colors.white38,
-          ),
-          iconSize: 48,
-          onPressed: _controller.hasNext && _controller.canControl
-              ? () {
-                  _controller.playNext();
-                }
-              : null,
+        _buildActionButton(
+          icon: Icons.share_rounded,
+          label: 'Share',
+          color: Colors.white.withOpacity(0.8),
+          onTap: () {
+            // TODO: Implement share functionality
+          },
         ),
       ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQueueOverlay() {
+    return AnimatedBuilder(
+      animation: _queueSlideAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, MediaQuery.of(context).size.height * 0.7 * _queueSlideAnimation.value),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            margin: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.3),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                  offset: Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Queue header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _hideQueueView,
+                        child: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Queue',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            Text(
+                              '${_controller.queue.length} songs',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          // TODO: Add queue options (clear, shuffle, etc.)
+                        },
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Queue list
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _controller.queue.length,
+                    itemBuilder: (context, index) {
+                      final track = _controller.queue[index];
+                      final isCurrentTrack = index == _controller.currentIndex;
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: isCurrentTrack 
+                              ? const Color(0xFFB91C1C).withOpacity(0.2)
+                              : const Color(0xFF2A2A2E).withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: isCurrentTrack 
+                              ? Border.all(color: const Color(0xFFB91C1C), width: 1)
+                              : null,
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          leading: Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: track.thumbnail.isNotEmpty
+                                  ? Image.network(
+                                      track.thumbnail,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: const Color(0xFF3A3A3E),
+                                          child: const Icon(
+                                            Icons.music_note_rounded,
+                                            color: Color(0xFF666666),
+                                            size: 24,
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : Container(
+                                      color: const Color(0xFF3A3A3E),
+                                      child: const Icon(
+                                        Icons.music_note_rounded,
+                                        color: Color(0xFF666666),
+                                        size: 24,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          title: Text(
+                            track.title,
+                            style: TextStyle(
+                              color: isCurrentTrack ? const Color(0xFFB91C1C) : Colors.white,
+                              fontSize: 16,
+                              fontWeight: isCurrentTrack ? FontWeight.w600 : FontWeight.w500,
+                              fontFamily: 'monospace',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            track.artist,
+                            style: TextStyle(
+                              color: isCurrentTrack 
+                                  ? const Color(0xFFB91C1C).withOpacity(0.8)
+                                  : Colors.white.withOpacity(0.7),
+                              fontSize: 14,
+                              fontFamily: 'monospace',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isCurrentTrack)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFB91C1C),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _controller.isPlaying 
+                                            ? Icons.volume_up_rounded 
+                                            : Icons.pause_rounded,
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Text(
+                                        'Now Playing',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          onTap: () {
+                            if (!isCurrentTrack) {
+                              _controller.playTrackFromQueue(_controller.queue, index);
+                            }
+                            _hideQueueView();
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -420,48 +878,75 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
       context: context,
       backgroundColor: const Color(0xFF1C1C1E),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: Icon(
-                _isLiked ? Icons.favorite : Icons.favorite_border, 
-                color: _isLiked ? const Color(0xFFB91C1C) : Colors.white
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A3A3E),
+                borderRadius: BorderRadius.circular(2),
               ),
-              title: Text(
-                _isLiked ? 'Unlike' : 'Like',
-                style: const TextStyle(
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A2E),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.queue_music_rounded, color: Colors.white),
+              ),
+              title: const Text(
+                'View Queue',
+                style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'monospace',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                '${_controller.queue.length} songs',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontFamily: 'monospace',
+                  fontSize: 12,
                 ),
               ),
               onTap: () {
                 Navigator.pop(context);
-                _toggleLike();
+                _showQueueView();
               },
             ),
             ListTile(
-              leading: const Icon(Icons.share, color: Colors.white),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A2E),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.stop_rounded, color: Colors.white),
+              ),
               title: const Text(
-                'Share',
+                'Stop Playing',
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'monospace',
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.stop, color: Colors.white),
-              title: const Text(
-                'Stop',
+              subtitle: Text(
+                'Stop and clear queue',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.white.withOpacity(0.7),
                   fontFamily: 'monospace',
+                  fontSize: 12,
                 ),
               ),
               onTap: () {
