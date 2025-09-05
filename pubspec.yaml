@@ -1,7 +1,7 @@
-name: testflutter
-description: "A new Flutter project."
+name: vibra
+description: "Vibra Music App - Stream and discover your favorite music."
 publish_to: 'none'
-version: 0.1.0
+version: 1.2.0
 
 environment:
   sdk: ^3.9.0
@@ -25,26 +25,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_launcher_icons: ^0.13.1
-
+  
 flutter:
   uses-material-design: true
-
-# Configuration for flutter_launcher_icons
-flutter_launcher_icons:
-  android: "launcher_icon"
-  ios: true
-  image_path: "assets/icon.png"
-  min_sdk_android: 21 # android min sdk min:16, default 21
-  web:
-    generate: true
-    image_path: "assets/icon.png"
-    background_color: "#hexcode"
-    theme_color: "#hexcode"
-  windows:
-    generate: true
-    image_path: "assets/icon.png"
-    icon_size: 48 # min:48, max:256, default: 48
-  macos:
-    generate: true
-    image_path: "assets/icon.png"
