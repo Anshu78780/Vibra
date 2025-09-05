@@ -238,40 +238,54 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
           stops: const [0.0, 0.3, 1.0],
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const Spacer(),
-            // Album artwork
-            _buildAlbumArtwork(),
-            const SizedBox(height: 40),
-            // Track info
-            _buildTrackInfo(),
-            const SizedBox(height: 32),
-            // Progress bar
-            _buildProgressBar(),
-            const SizedBox(height: 32),
-            // Controls
-            _buildControls(),
-            const SizedBox(height: 24),
-            // Action buttons (like, download, share)
-            _buildActionButtons(),
-            const Spacer(),
-            // Error message
-            if (_controller.errorMessage != null) _buildErrorMessage(),
-            // Loading overlay
-            if (_controller.isLoading) _buildLoadingOverlay(),
-          ],
+      child: SafeArea(
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 
+                         kToolbarHeight - 
+                         MediaQuery.of(context).padding.top,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  // Album artwork
+                  _buildAlbumArtwork(),
+                  const SizedBox(height: 40),
+                  // Track info
+                  _buildTrackInfo(),
+                  const SizedBox(height: 32),
+                  // Progress bar
+                  _buildProgressBar(),
+                  const SizedBox(height: 32),
+                  // Controls
+                  _buildControls(),
+                  const SizedBox(height: 24),
+                  // Action buttons (like, download, queue)
+                  _buildActionButtons(),
+                  const SizedBox(height: 20),
+                  // Error message
+                  if (_controller.errorMessage != null) _buildErrorMessage(),
+                  // Loading overlay
+                  if (_controller.isLoading) _buildLoadingOverlay(),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAlbumArtwork() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final artworkSize = (screenWidth * 0.8).clamp(280.0, 320.0);
+    
     return Container(
-      width: 320,
-      height: 320,
+      width: artworkSize,
+      height: artworkSize,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -552,12 +566,10 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
           onTap: _isDownloaded ? null : _downloadTrack,
         ),
         _buildActionButton(
-          icon: Icons.share_rounded,
-          label: 'Share',
+          icon: Icons.queue_music_rounded,
+          label: 'Queue',
           color: Colors.white.withOpacity(0.8),
-          onTap: () {
-            // TODO: Implement share functionality
-          },
+          onTap: _showQueueView,
         ),
       ],
     );

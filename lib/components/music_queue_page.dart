@@ -76,7 +76,7 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: const Text(
-          'vibra',
+          'ViBra',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,

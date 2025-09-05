@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/music_model.dart';
 import '../services/download_service.dart';
 import '../controllers/music_player_controller.dart';
+import 'mini_music_player.dart';
 
 class DownloadsPage extends StatefulWidget {
   const DownloadsPage({super.key});
@@ -79,6 +80,23 @@ class _DownloadsPageState extends State<DownloadsPage> {
     }
   }
 
+  void _playTrackFromDownloads(MusicTrack track) {
+    final trackIndex = _downloadedTracks.indexWhere((t) => t.webpageUrl == track.webpageUrl);
+    if (trackIndex != -1) {
+      // Play the track and set up the entire downloaded songs queue
+      MusicPlayerController().playTrackFromQueue(_downloadedTracks, trackIndex);
+    } else {
+      // Fallback to single track play
+      MusicPlayerController().playTrack(track);
+    }
+  }
+
+  void _playAllDownloads() {
+    if (_downloadedTracks.isNotEmpty) {
+      MusicPlayerController().playTrackFromQueue(_downloadedTracks, 0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,6 +134,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
           : _downloadedTracks.isEmpty
               ? _buildEmptyState()
               : _buildDownloadsList(),
+      bottomNavigationBar: const MiniMusicPlayer(),
     );
   }
 
@@ -154,39 +173,69 @@ class _DownloadsPageState extends State<DownloadsPage> {
   }
 
   Widget _buildDownloadsList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _downloadedTracks.length,
-      itemBuilder: (context, index) {
-        final track = _downloadedTracks[index];
-        final trackId = track.webpageUrl.split('v=').last;
-        final progress = _downloadProgress[trackId];
-        
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2C2C2E),
-                borderRadius: BorderRadius.circular(8),
+    return Column(
+      children: [
+        // Play All button
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: _downloadedTracks.isNotEmpty ? _playAllDownloads : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB91C1C),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: progress != null && progress < 1.0
-                  ? CircularProgressIndicator(
-                      value: progress,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
-                      backgroundColor: Colors.grey[700],
-                    )
-                  : const Icon(
-                      Icons.music_note,
-                      color: Color(0xFFB91C1C),
-                      size: 28,
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.play_arrow),
+            label: Text(
+              'Play All (${_downloadedTracks.length} songs)',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+        // Songs list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _downloadedTracks.length,
+            itemBuilder: (context, index) {
+              final track = _downloadedTracks[index];
+              final trackId = track.webpageUrl.split('v=').last;
+              final progress = _downloadProgress[trackId];
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C1E),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2C2C2E),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: progress != null && progress < 1.0
+                        ? CircularProgressIndicator(
+                            value: progress,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
+                            backgroundColor: Colors.grey[700],
+                          )
+                        : const Icon(
+                            Icons.music_note,
+                            color: Color(0xFFB91C1C),
+                            size: 28,
                     ),
             ),
             title: Text(
@@ -241,7 +290,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     icon: const Icon(Icons.more_vert, color: Colors.white),
                     onSelected: (value) {
                       if (value == 'play') {
-                        MusicPlayerController().playTrack(track);
+                        _playTrackFromDownloads(track);
                         Navigator.pop(context);
                       } else if (value == 'delete') {
                         _deleteDownload(track);
@@ -284,13 +333,16 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   ),
             onTap: progress == null || progress >= 1.0
                 ? () {
-                    MusicPlayerController().playTrack(track);
+                    _playTrackFromDownloads(track);
                     Navigator.pop(context);
                   }
                 : null,
           ),
         );
       },
+    ),
+        ),
+      ],
     );
   }
 

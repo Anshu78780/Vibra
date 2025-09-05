@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/music_model.dart';
 import '../services/music_service.dart';
 import '../services/suggestion_service.dart';
+import '../services/search_history_service.dart';
 import '../controllers/music_player_controller.dart';
 import 'dart:async';
 
@@ -17,12 +18,20 @@ class _SearchPageState extends State<SearchPage> {
   final FocusNode _searchFocusNode = FocusNode();
   List<MusicTrack> _searchResults = [];
   List<String> _suggestions = [];
+  List<String> _searchHistory = [];
   bool _isSearching = false;
   bool _isLoadingSuggestions = false;
   bool _showSuggestions = false;
+  bool _showHistory = false;
   String? _errorMessage;
   String _lastQuery = '';
   Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSearchHistory();
+  }
 
   @override
   void dispose() {
@@ -30,6 +39,13 @@ class _SearchPageState extends State<SearchPage> {
     _searchFocusNode.dispose();
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadSearchHistory() async {
+    final history = await SearchHistoryService.getRecentSearches(limit: 10);
+    setState(() {
+      _searchHistory = history;
+    });
   }
 
   Future<void> _loadSuggestions(String query) async {
@@ -67,10 +83,15 @@ class _SearchPageState extends State<SearchPage> {
     if (value.isEmpty) {
       setState(() {
         _showSuggestions = false;
+        _showHistory = true;
         _suggestions = [];
       });
       return;
     }
+
+    setState(() {
+      _showHistory = false;
+    });
 
     // Show suggestions after 300ms of no typing
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
@@ -95,6 +116,7 @@ class _SearchPageState extends State<SearchPage> {
         _errorMessage = null;
         _lastQuery = '';
         _showSuggestions = false;
+        _showHistory = true;
       });
       return;
     }
@@ -103,10 +125,15 @@ class _SearchPageState extends State<SearchPage> {
       _isSearching = true;
       _errorMessage = null;
       _lastQuery = query;
-      _showSuggestions = false; // Hide suggestions when searching
+      _showSuggestions = false;
+      _showHistory = false;
     });
 
     try {
+      // Save to search history
+      await SearchHistoryService.addToHistory(query);
+      await _loadSearchHistory(); // Refresh history
+      
       final response = await MusicService.searchMusic(query);
       setState(() {
         _searchResults = response.songs;
@@ -121,14 +148,42 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  void _selectFromHistory(String historyItem) {
+    _searchController.text = historyItem;
+    setState(() {
+      _showHistory = false;
+      _showSuggestions = false;
+    });
+    _performSearch(historyItem);
+  }
+
+  Future<void> _removeFromHistory(String historyItem) async {
+    try {
+      await SearchHistoryService.removeFromHistory(historyItem);
+      await _loadSearchHistory(); // Refresh history
+    } catch (e) {
+      print('Error removing from history: $e');
+    }
+  }
+
+  Future<void> _clearSearchHistory() async {
+    try {
+      await SearchHistoryService.clearHistory();
+      await _loadSearchHistory(); // Refresh history
+    } catch (e) {
+      print('Error clearing history: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
         // Hide suggestions when tapping outside
-        if (_showSuggestions) {
+        if (_showSuggestions || _showHistory) {
           setState(() {
             _showSuggestions = false;
+            _showHistory = false;
           });
         }
         FocusScope.of(context).unfocus();
@@ -182,6 +237,7 @@ class _SearchPageState extends State<SearchPage> {
                               _searchController.clear();
                               setState(() {
                                 _showSuggestions = false;
+                                _showHistory = true;
                                 _searchResults = [];
                                 _suggestions = [];
                               });
@@ -202,9 +258,15 @@ class _SearchPageState extends State<SearchPage> {
                   },
                   onChanged: _onSearchTextChanged,
                   onTap: () {
-                    if (_searchController.text.isNotEmpty && _suggestions.isNotEmpty) {
+                    if (_searchController.text.isEmpty) {
+                      setState(() {
+                        _showHistory = true;
+                        _showSuggestions = false;
+                      });
+                    } else if (_suggestions.isNotEmpty) {
                       setState(() {
                         _showSuggestions = true;
+                        _showHistory = false;
                       });
                     }
                   },
@@ -221,6 +283,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildContent() {
+    // Show search history when no search text and history is requested
+    if (_showHistory && _searchController.text.isEmpty && _searchHistory.isNotEmpty) {
+      return _buildSearchHistory();
+    }
+    
     // Show suggestions when typing and we have suggestions
     if (_showSuggestions && (_suggestions.isNotEmpty || _isLoadingSuggestions)) {
       return _buildSuggestions();
@@ -298,27 +365,7 @@ class _SearchPageState extends State<SearchPage> {
       return _buildSearchResults();
     }
 
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search,
-            size: 64,
-            color: Color(0xFF666666),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Search for your favorite music',
-            style: TextStyle(
-              color: Color(0xFF999999),
-              fontSize: 16,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildEmptyState();
   }
 
   Widget _buildSuggestions() {
@@ -398,6 +445,132 @@ class _SearchPageState extends State<SearchPage> {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSearchHistory() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Recent searches',
+                style: TextStyle(
+                  color: Color(0xFF999999),
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              if (_searchHistory.isNotEmpty)
+                GestureDetector(
+                  onTap: _clearSearchHistory,
+                  child: const Text(
+                    'Clear all',
+                    style: TextStyle(
+                      color: Color(0xFFB91C1C),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _searchHistory.length,
+            physics: const BouncingScrollPhysics(),
+            itemBuilder: (context, index) {
+              final historyItem = _searchHistory[index];
+              return GestureDetector(
+                onTap: () => _selectFromHistory(historyItem),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Color(0xFF1A1A1A),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.history,
+                        color: Color(0xFF666666),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          historyItem,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontFamily: 'monospace',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _removeFromHistory(historyItem),
+                        child: const Icon(
+                          Icons.close,
+                          color: Color(0xFF666666),
+                          size: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search,
+            size: 64,
+            color: Color(0xFF333333),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Search for music',
+            style: TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 16,
+              fontFamily: 'monospace',
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Find your favorite songs and artists',
+            style: TextStyle(
+              color: Color(0xFF444444),
+              fontSize: 14,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
     );
   }
 

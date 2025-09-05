@@ -4,7 +4,9 @@ import 'search_page.dart';
 import 'settings_page.dart';
 import 'liked_songs_page.dart';
 import 'mini_music_player.dart';
+import 'update_dialog.dart';
 import '../services/liked_songs_service.dart';
+import '../services/update_manager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,11 +29,56 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadLikedSongs();
+    _checkForUpdates();
   }
   
   Future<void> _loadLikedSongs() async {
     // Load liked songs from cache when app starts
     await LikedSongsService.loadCachedLikedSongs();
+  }
+
+  Future<void> _checkForUpdates() async {
+    try {
+      // Check if enough time has passed since last update check
+      final shouldCheck = await UpdateManager.shouldCheckForUpdates();
+      if (!shouldCheck) return;
+
+      // Check for updates
+      final updateInfo = await UpdateManager.checkForUpdates();
+      if (updateInfo != null && mounted) {
+        // Show update dialog
+        await UpdateDialog.show(
+          context,
+          updateInfo,
+          onSkip: () async {
+            await UpdateManager.skipVersion(updateInfo.latestVersion);
+          },
+          onLater: () {
+            // Do nothing, will check again next time
+          },
+          onUpdate: () async {
+            try {
+              await UpdateManager.downloadUpdate(updateInfo.downloadUrl);
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Failed to open download link: $e',
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                    backgroundColor: const Color(0xFFB91C1C),
+                  ),
+                );
+              }
+            }
+          },
+        );
+      }
+    } catch (e) {
+      print('Error checking for updates: $e');
+      // Silently fail - don't interrupt user experience
+    }
   }
 
   @override
