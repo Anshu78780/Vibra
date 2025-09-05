@@ -257,23 +257,31 @@ class MusicPlayerController extends ChangeNotifier {
 
       _setLoading(true, 'Getting audio stream...');
       
-      // Check if we have a preloaded audio URL for this track
+      // Check if track is downloaded locally first
       String audioUrl;
-      if (PreloadingService.isPreloaded(track)) {
-        final preloadedUrl = await PreloadingService.getPreloadedAudioUrl(track);
-        if (preloadedUrl != null) {
-          audioUrl = preloadedUrl;
-          print('🚀 Using preloaded audio URL for: ${track.title}');
-          _setLoading(true, 'Loading from cache...');
-        } else {
-          // Fallback to fresh URL if preloaded URL is null
-          audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
-          print('🔗 Got fresh audio URL (preload failed) of length: ${audioUrl.length}');
-        }
+      final downloadedPath = await DownloadService().getDownloadedAudioPath(track);
+      if (downloadedPath != null) {
+        audioUrl = 'file://$downloadedPath';
+        print('🎵 Using downloaded file for: ${track.title}');
+        _setLoading(true, 'Loading from local storage...');
       } else {
-        // Get audio URL using youtube_explode_dart
-        audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
-        print('🔗 Got fresh audio URL of length: ${audioUrl.length}');
+        // Check if we have a preloaded audio URL for this track
+        if (PreloadingService.isPreloaded(track)) {
+          final preloadedUrl = await PreloadingService.getPreloadedAudioUrl(track);
+          if (preloadedUrl != null) {
+            audioUrl = preloadedUrl;
+            print('🚀 Using preloaded audio URL for: ${track.title}');
+            _setLoading(true, 'Loading from cache...');
+          } else {
+            // Fallback to fresh URL if preloaded URL is null
+            audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+            print('🔗 Got fresh audio URL (preload failed) of length: ${audioUrl.length}');
+          }
+        } else {
+          // Get audio URL using youtube_explode_dart
+          audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+          print('🔗 Got fresh audio URL of length: ${audioUrl.length}');
+        }
       }
       
       _setLoading(true, 'Preparing playback...');

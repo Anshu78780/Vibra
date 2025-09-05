@@ -3,6 +3,7 @@ import '../models/music_model.dart';
 import '../controllers/music_player_controller.dart';
 import '../services/liked_songs_service.dart';
 import '../services/user_playlist_service.dart';
+import 'mini_music_player.dart';
 
 class LikedSongsPage extends StatefulWidget {
   const LikedSongsPage({super.key});
@@ -1246,6 +1247,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
         displacement: 40,
         child: _buildBody(),
       ),
+      bottomNavigationBar: const MiniMusicPlayer(),
     );
   }
 
