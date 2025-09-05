@@ -129,26 +129,40 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                   ],
                 ),
               ),
-              // Loading or play/pause button
+              // Loading, error, or play/pause button
               if (_controller.isLoading)
                 const UniversalLoader(
                   size: 24,
                   showMessage: false,
                 )
-              else
+              else if (_controller.errorMessage != null)
                 GestureDetector(
                   onTap: () {
+                    _controller.retry();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    child: const Icon(
+                      Icons.refresh,
+                      color: Colors.orange,
+                      size: 24,
+                    ),
+                  ),
+                )
+              else
+                GestureDetector(
+                  onTap: _controller.canControl ? () {
                     if (_controller.isPlaying) {
                       _controller.pause();
                     } else {
                       _controller.resume();
                     }
-                  },
+                  } : null,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     child: Icon(
                       _controller.isPlaying ? Icons.pause : Icons.play_arrow,
-                      color: Colors.white,
+                      color: _controller.canControl ? Colors.white : Colors.white54,
                       size: 24,
                     ),
                   ),

@@ -40,13 +40,26 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
           icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Now Playing',
-          style: TextStyle(
-            color: Colors.white,
-            fontFamily: 'monospace',
-            fontSize: 16,
-          ),
+        title: Column(
+          children: [
+            const Text(
+              'Now Playing',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'monospace',
+                fontSize: 16,
+              ),
+            ),
+            if (_controller.queue.isNotEmpty)
+              Text(
+                '${_controller.currentIndex + 1} of ${_controller.queue.length}',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+          ],
         ),
         centerTitle: true,
         elevation: 0,
@@ -103,8 +116,12 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
           // Controls
           _buildControls(),
           const Spacer(),
+          // Error message
+          if (_controller.errorMessage != null) _buildErrorMessage(),
           // Loading overlay
           if (_controller.isLoading) _buildLoadingOverlay(),
+          // Error message
+          if (_controller.errorMessage != null) _buildErrorMessage(),
         ],
       ),
     );
@@ -189,21 +206,24 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
       children: [
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: const Color(0xFFB91C1C),
+            activeTrackColor: _controller.canControl ? const Color(0xFFB91C1C) : const Color(0xFF666666),
             inactiveTrackColor: const Color(0xFF333333),
-            thumbColor: const Color(0xFFB91C1C),
+            thumbColor: _controller.canControl ? const Color(0xFFB91C1C) : const Color(0xFF666666),
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
             trackHeight: 4,
+            disabledActiveTrackColor: const Color(0xFF666666),
+            disabledInactiveTrackColor: const Color(0xFF333333),
+            disabledThumbColor: const Color(0xFF666666),
           ),
           child: Slider(
             value: _controller.progress.clamp(0.0, 1.0),
-            onChanged: (value) {
+            onChanged: _controller.canControl && _controller.duration > Duration.zero ? (value) {
               final position = Duration(
                 milliseconds: (value * _controller.duration.inMilliseconds).round(),
               );
               _controller.seek(position);
-            },
+            } : null,
           ),
         ),
         Padding(
@@ -239,11 +259,18 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         IconButton(
-          icon: const Icon(Icons.skip_previous, color: Colors.white),
+          icon: Icon(
+            Icons.skip_previous,
+            color: _controller.hasPrevious && _controller.canControl 
+                ? Colors.white 
+                : Colors.white38,
+          ),
           iconSize: 48,
-          onPressed: () {
-            // TODO: Implement previous track
-          },
+          onPressed: _controller.hasPrevious && _controller.canControl
+              ? () {
+                  _controller.playPrevious();
+                }
+              : null,
         ),
         Container(
           width: 80,
@@ -258,23 +285,30 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
               color: Colors.white,
             ),
             iconSize: 40,
-            onPressed: _controller.isLoading
-                ? null
-                : () {
+            onPressed: _controller.canControl
+                ? () {
                     if (_controller.isPlaying) {
                       _controller.pause();
                     } else {
                       _controller.resume();
                     }
-                  },
+                  }
+                : null,
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.skip_next, color: Colors.white),
+          icon: Icon(
+            Icons.skip_next,
+            color: _controller.hasNext && _controller.canControl 
+                ? Colors.white 
+                : Colors.white38,
+          ),
           iconSize: 48,
-          onPressed: () {
-            // TODO: Implement next track
-          },
+          onPressed: _controller.hasNext && _controller.canControl
+              ? () {
+                  _controller.playNext();
+                }
+              : null,
         ),
       ],
     );
@@ -287,6 +321,58 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
         child: UniversalLoader(
           message: _controller.loadingMessage,
           size: 50,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withOpacity(0.8),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Playback Error',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  _controller.errorMessage!,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontFamily: 'monospace',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => _controller.retry(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB91C1C),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       ),
     );

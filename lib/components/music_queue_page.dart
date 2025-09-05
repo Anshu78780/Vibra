@@ -371,6 +371,13 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
   }
 
   void _playTrack(MusicTrack track) {
-    MusicPlayerController().playTrack(track);
+    final trackIndex = _musicTracks.indexWhere((t) => t.webpageUrl == track.webpageUrl);
+    if (trackIndex != -1) {
+      // Play the track and set up the entire queue
+      MusicPlayerController().playTrackFromQueue(_musicTracks, trackIndex);
+    } else {
+      // Fallback to single track play
+      MusicPlayerController().playTrack(track);
+    }
   }
 }

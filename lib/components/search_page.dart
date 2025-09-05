@@ -446,6 +446,13 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _playTrack(MusicTrack track) {
-    MusicPlayerController().playTrack(track);
+    final trackIndex = _searchResults.indexWhere((t) => t.webpageUrl == track.webpageUrl);
+    if (trackIndex != -1 && _searchResults.isNotEmpty) {
+      // Play the track and set up the search results as queue
+      MusicPlayerController().playTrackFromQueue(_searchResults, trackIndex);
+    } else {
+      // Fallback to single track play
+      MusicPlayerController().playTrack(track);
+    }
   }
 }
