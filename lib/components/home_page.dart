@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'music_queue_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
+import 'mini_music_player.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,7 +24,12 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _pages[_currentIndex],
+      body: Column(
+        children: [
+          Expanded(child: _pages[_currentIndex]),
+          const MiniMusicPlayer(),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(

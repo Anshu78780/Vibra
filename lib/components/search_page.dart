@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/music_model.dart';
 import '../services/music_service.dart';
+import '../controllers/music_player_controller.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -445,15 +446,6 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _playTrack(MusicTrack track) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Playing: ${track.title} by ${track.artist}',
-          style: const TextStyle(fontFamily: 'monospace'),
-        ),
-        backgroundColor: const Color(0xFFB91C1C),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    MusicPlayerController().playTrack(track);
   }
 }

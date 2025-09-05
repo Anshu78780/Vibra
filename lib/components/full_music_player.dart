@@ -1,0 +1,349 @@
+import 'package:flutter/material.dart';
+import '../controllers/music_player_controller.dart';
+import '../components/universal_loader.dart';
+
+class FullMusicPlayer extends StatefulWidget {
+  const FullMusicPlayer({super.key});
+
+  @override
+  State<FullMusicPlayer> createState() => _FullMusicPlayerState();
+}
+
+class _FullMusicPlayerState extends State<FullMusicPlayer> {
+  final MusicPlayerController _controller = MusicPlayerController();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onPlayerStateChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onPlayerStateChanged);
+    super.dispose();
+  }
+
+  void _onPlayerStateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Now Playing',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'monospace',
+            fontSize: 16,
+          ),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () => _showOptions(),
+          ),
+        ],
+      ),
+      body: _controller.hasTrack ? _buildPlayerContent() : _buildNoTrackContent(),
+    );
+  }
+
+  Widget _buildNoTrackContent() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.music_off,
+            size: 64,
+            color: Color(0xFF666666),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'No track playing',
+            style: TextStyle(
+              color: Color(0xFF999999),
+              fontSize: 16,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerContent() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          const Spacer(),
+          // Album artwork
+          _buildAlbumArtwork(),
+          const SizedBox(height: 32),
+          // Track info
+          _buildTrackInfo(),
+          const SizedBox(height: 32),
+          // Progress bar
+          _buildProgressBar(),
+          const SizedBox(height: 32),
+          // Controls
+          _buildControls(),
+          const Spacer(),
+          // Loading overlay
+          if (_controller.isLoading) _buildLoadingOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlbumArtwork() {
+    return Container(
+      width: 300,
+      height: 300,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: _controller.currentTrack!.thumbnail.isNotEmpty
+            ? Image.network(
+                _controller.currentTrack!.thumbnail,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: const Color(0xFF1C1C1E),
+                    child: const Icon(
+                      Icons.music_note,
+                      color: Color(0xFF666666),
+                      size: 80,
+                    ),
+                  );
+                },
+              )
+            : Container(
+                color: const Color(0xFF1C1C1E),
+                child: const Icon(
+                  Icons.music_note,
+                  color: Color(0xFF666666),
+                  size: 80,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildTrackInfo() {
+    return Column(
+      children: [
+        Text(
+          _controller.currentTrack!.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'monospace',
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _controller.currentTrack!.artist,
+          style: const TextStyle(
+            color: Color(0xFF999999),
+            fontSize: 18,
+            fontFamily: 'monospace',
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProgressBar() {
+    return Column(
+      children: [
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: const Color(0xFFB91C1C),
+            inactiveTrackColor: const Color(0xFF333333),
+            thumbColor: const Color(0xFFB91C1C),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            trackHeight: 4,
+          ),
+          child: Slider(
+            value: _controller.progress.clamp(0.0, 1.0),
+            onChanged: (value) {
+              final position = Duration(
+                milliseconds: (value * _controller.duration.inMilliseconds).round(),
+              );
+              _controller.seek(position);
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _controller.formattedPosition,
+                style: const TextStyle(
+                  color: Color(0xFF999999),
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              Text(
+                _controller.formattedDuration,
+                style: const TextStyle(
+                  color: Color(0xFF999999),
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildControls() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.skip_previous, color: Colors.white),
+          iconSize: 48,
+          onPressed: () {
+            // TODO: Implement previous track
+          },
+        ),
+        Container(
+          width: 80,
+          height: 80,
+          decoration: const BoxDecoration(
+            color: Color(0xFFB91C1C),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: Icon(
+              _controller.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+            ),
+            iconSize: 40,
+            onPressed: _controller.isLoading
+                ? null
+                : () {
+                    if (_controller.isPlaying) {
+                      _controller.pause();
+                    } else {
+                      _controller.resume();
+                    }
+                  },
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.skip_next, color: Colors.white),
+          iconSize: 48,
+          onPressed: () {
+            // TODO: Implement next track
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withOpacity(0.8),
+        child: UniversalLoader(
+          message: _controller.loadingMessage,
+          size: 50,
+        ),
+      ),
+    );
+  }
+
+  void _showOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.favorite_border, color: Colors.white),
+              title: const Text(
+                'Like',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.share, color: Colors.white),
+              title: const Text(
+                'Share',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.stop, color: Colors.white),
+              title: const Text(
+                'Stop',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _controller.stop();
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
