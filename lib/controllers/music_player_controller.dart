@@ -4,6 +4,8 @@ import 'package:audio_service/audio_service.dart';
 import '../models/music_model.dart';
 import '../services/audio_service.dart' as yt_audio_service;
 import '../services/background_audio_handler.dart';
+import '../services/recommendation_service.dart';
+import '../services/preloading_service.dart';
 
 class MusicPlayerController extends ChangeNotifier {
   static final MusicPlayerController _instance = MusicPlayerController._internal();
@@ -124,6 +126,18 @@ class MusicPlayerController extends ChangeNotifier {
     _audioPlayer.positionStream.listen((position) {
       _position = position;
       
+      // Check if we should preload the next track (30 seconds before end)
+      if (_duration.inMilliseconds > 0 && hasNext) {
+        final secondsLeft = (_duration.inMilliseconds - position.inMilliseconds) / 1000;
+        
+        if (secondsLeft <= 30 && secondsLeft > 25) {
+          print('⏳ Approaching end of track: ${position.inSeconds}s / ${_duration.inSeconds}s');
+          print('🔄 Preloading next track...') ;
+          // Start preloading when there are 30 seconds left (with 5-second buffer to avoid spam)
+          _preloadNextTrack();
+        }
+      }
+      
       // Check if we're near the end of the track (95% complete)
       // This helps ensure we detect completion even if the completion event is missed
       if (_duration.inMilliseconds > 0 && 
@@ -217,9 +231,24 @@ class MusicPlayerController extends ChangeNotifier {
 
       _setLoading(true, 'Getting audio stream...');
       
-      // Get audio URL using youtube_explode_dart
-  final audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
-      print('🔗 Got audio URL of length: ${audioUrl.length}');
+      // Check if we have a preloaded audio URL for this track
+      String audioUrl;
+      if (PreloadingService.isPreloaded(track)) {
+        final preloadedUrl = await PreloadingService.getPreloadedAudioUrl(track);
+        if (preloadedUrl != null) {
+          audioUrl = preloadedUrl;
+          print('🚀 Using preloaded audio URL for: ${track.title}');
+          _setLoading(true, 'Loading from cache...');
+        } else {
+          // Fallback to fresh URL if preloaded URL is null
+          audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+          print('🔗 Got fresh audio URL (preload failed) of length: ${audioUrl.length}');
+        }
+      } else {
+        // Get audio URL using youtube_explode_dart
+        audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+        print('🔗 Got fresh audio URL of length: ${audioUrl.length}');
+      }
       
       _setLoading(true, 'Preparing playback...');
       
@@ -281,6 +310,77 @@ class MusicPlayerController extends ChangeNotifier {
     await playTrack(track);
   }
 
+  /// Play a track and build queue using recommendations
+  Future<void> playTrackWithRecommendations(MusicTrack track) async {
+    try {
+      print('🎵 Playing track with recommendations: ${track.title}');
+      // Start playing the track immediately
+      _queue = [track];
+      _currentIndex = 0;
+      await playTrack(track);
+      
+      // Get recommendations in the background
+      print('🔍 Starting recommendation loading for: ${track.title}');
+      _loadRecommendationsInBackground(track);
+    } catch (e) {
+      print('❌ Error playing track with recommendations: $e');
+      // Fallback to regular playback
+      await playTrack(track);
+    }
+  }
+
+  /// Load recommendations in the background
+  Future<void> _loadRecommendationsInBackground(MusicTrack track) async {
+    print('🎯 BACKGROUND: Starting _loadRecommendationsInBackground for: ${track.title}');
+    try {
+      final videoId = _extractVideoId(track.webpageUrl);
+      print('🎯 BACKGROUND: Extracted video ID: $videoId');
+      if (videoId == null) {
+        print('❌ Could not extract video ID from: ${track.webpageUrl}');
+        return;
+      }
+      
+      print('🔍 Getting recommendations for: ${track.title} (ID: $videoId)');
+      final recommendations = await RecommendationService.getRecommendations(videoId);
+      
+      print('📦 Received ${recommendations.length} recommendations from API');
+      
+      if (recommendations.isNotEmpty) {
+        // Update the queue with recommendations (keep current track at index 0)
+        final oldQueueLength = _queue.length;
+        _queue = [track, ...recommendations];
+        print('✅ Updated queue from $oldQueueLength to ${_queue.length} tracks');
+        print('📋 First 3 queue tracks:');
+        for (int i = 0; i < _queue.length && i < 3; i++) {
+          print('  ${i}: ${_queue[i].title} by ${_queue[i].artist}');
+        }
+        
+        // Update the system UI queue
+        final items = _queue.map((t) => _toMediaItem(t)).toList();
+        try {
+          await _audioHandler?.updateQueue(items);
+          print('📱 Updated system UI queue successfully');
+        } catch (e) {
+          print('❌ Failed to update system UI queue: $e');
+        }
+        
+        // Preload the first recommendation
+        if (recommendations.isNotEmpty) {
+          PreloadingService.preloadAudioUrl(recommendations.first);
+          print('🔄 Started preloading: ${recommendations.first.title}');
+        }
+        
+        notifyListeners();
+        print('✅ Queue update complete and listeners notified');
+      } else {
+        print('⚠️ No recommendations found for: ${track.title}');
+      }
+    } catch (e) {
+      print('❌ Error loading recommendations: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
+    }
+  }
+
   Future<void> _playNext() async {
     if (hasNext) {
       print('Playing next track at index: ${_currentIndex + 1}');
@@ -310,6 +410,27 @@ class MusicPlayerController extends ChangeNotifier {
       final previousTrack = _queue[_currentIndex];
       _currentTrack = previousTrack;
       await playTrack(previousTrack);
+    }
+  }
+
+  /// Preload the next track's audio URL for seamless playback
+  Future<void> _preloadNextTrack() async {
+    if (!hasNext) return;
+    
+    final nextTrack = _queue[_currentIndex + 1];
+    
+    // Check if already preloaded
+    if (PreloadingService.isPreloaded(nextTrack)) {
+      print('🔄 Next track already preloaded: ${nextTrack.title}');
+      return;
+    }
+    
+    print('🔄 Starting preload for next track: ${nextTrack.title}');
+    try {
+      await PreloadingService.preloadAudioUrl(nextTrack);
+      print('✅ Successfully preloaded: ${nextTrack.title}');
+    } catch (e) {
+      print('❌ Failed to preload ${nextTrack.title}: $e');
     }
   }
 
