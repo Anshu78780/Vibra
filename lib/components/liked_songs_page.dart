@@ -1,45 +1,37 @@
 import 'package:flutter/material.dart';
 import '../models/music_model.dart';
-import '../services/music_service.dart';
 import '../controllers/music_player_controller.dart';
 import '../services/liked_songs_service.dart';
 
-class MusicQueuePage extends StatefulWidget {
-  const MusicQueuePage({super.key});
+class LikedSongsPage extends StatefulWidget {
+  const LikedSongsPage({super.key});
 
   @override
-  State<MusicQueuePage> createState() => _MusicQueuePageState();
+  State<LikedSongsPage> createState() => _LikedSongsPageState();
 }
 
-class _MusicQueuePageState extends State<MusicQueuePage> {
-  List<MusicTrack> _musicTracks = [];
+class _LikedSongsPageState extends State<LikedSongsPage> {
+  List<MusicTrack> _likedSongs = [];
   bool _isLoading = true;
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _fetchMusicData();
+    _loadLikedSongs();
   }
 
-  Future<void> _fetchMusicData() async {
+  Future<void> _loadLikedSongs() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
-    try {
-      final response = await MusicService.fetchTrendingMusic();
-      setState(() {
-        _musicTracks = response.trendingMusic;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
+    // Ensure cached songs are loaded
+    await LikedSongsService.loadCachedLikedSongs();
+    
+    setState(() {
+      _likedSongs = LikedSongsService.getLikedSongs();
+      _isLoading = false;
+    });
   }
 
   @override
@@ -49,7 +41,7 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: const Text(
-          'vibra',
+          'Liked Songs',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -57,14 +49,14 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
             fontSize: 20,
           ),
         ),
-        centerTitle: false, // This aligns the title to the left
-        titleSpacing: 16.0, // Add some spacing from the left edge
+        centerTitle: false,
+        titleSpacing: 16.0,
         elevation: 0,
       ),
       body: RefreshIndicator(
-        onRefresh: _fetchMusicData,
+        onRefresh: _loadLikedSongs,
         backgroundColor: const Color(0xFF1C1C1E),
-        color: const Color(0xFFB91C1C), // Darker red like Apple Music
+        color: const Color(0xFFB91C1C),
         strokeWidth: 2.5,
         displacement: 40,
         child: _buildBody(),
@@ -75,19 +67,44 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFFB91C1C),
+          strokeWidth: 3,
+        ),
+      );
+    }
+
+    if (_likedSongs.isEmpty) {
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
-              color: Color(0xFFB91C1C),
-              strokeWidth: 3,
+            Icon(
+              Icons.favorite_border,
+              size: 72,
+              color: Colors.white.withOpacity(0.5),
             ),
-            SizedBox(height: 16),
-            Text(
-              'Loading trending music...',
+            const SizedBox(height: 16),
+            const Text(
+              'No liked songs yet',
               style: TextStyle(
-                color: Colors.white70,
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
                 fontFamily: 'monospace',
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                'Your favorite songs will appear here',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -95,85 +112,18 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
       );
     }
 
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error, color: Colors.red, size: 48),
-              const SizedBox(height: 16),
-              const Text(
-                'Failed to load music',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontFamily: 'monospace',
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _fetchMusicData,
-                icon: const Icon(Icons.refresh),
-                label: const Text(
-                  'Try Again',
-                  style: TextStyle(fontFamily: 'monospace'),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Expanded(child: _buildMusicQueue()),
-      ],
-    );
-  }
-
-  Widget _buildMusicQueue() {
-    if (_musicTracks.isEmpty) {
-      return const Center(
-        child: Text(
-          'No music tracks found',
-          style: TextStyle(
-            color: Colors.white70,
-            fontFamily: 'monospace',
-          ),
-        ),
-      );
-    }
-
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      itemCount: _musicTracks.length,
-      physics: const BouncingScrollPhysics(), // iOS-like smooth scrolling
-      cacheExtent: 1000, // Pre-render items for smoother scrolling
-      itemExtent: 80, // Fixed height for better performance
+      itemCount: _likedSongs.length,
+      physics: const BouncingScrollPhysics(),
+      cacheExtent: 1000,
       itemBuilder: (context, index) {
-        final track = _musicTracks[index];
+        final track = _likedSongs[index];
         return Column(
-          mainAxisSize: MainAxisSize.min, // Better performance
+          mainAxisSize: MainAxisSize.min,
           children: [
             _buildMusicTile(track),
-            if (index < _musicTracks.length - 1)
+            if (index < _likedSongs.length - 1)
               const Divider(
                 color: Color(0xFF1A1A1A),
                 height: 1,
@@ -189,13 +139,13 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
   Widget _buildMusicTile(MusicTrack track) {
     return GestureDetector(
       onTap: () => _playTrack(track),
-      behavior: HitTestBehavior.opaque, // Better tap detection
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 68, // Fixed height for consistent performance
+        height: 68,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
-            // Album artwork with optimized loading
+            // Album artwork
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: track.thumbnail.isNotEmpty
@@ -204,7 +154,7 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
                       width: 56,
                       height: 56,
                       fit: BoxFit.cover,
-                      cacheWidth: 112, // Cache at 2x resolution for retina displays
+                      cacheWidth: 112,
                       cacheHeight: 112,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
@@ -298,15 +248,15 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
               ),
             ),
             const SizedBox(width: 16),
-            // More options button
+            // Unlike option
             GestureDetector(
-              onTap: () => _showTrackOptions(track),
+              onTap: () => _unlikeSong(track),
               behavior: HitTestBehavior.opaque,
               child: Container(
                 padding: const EdgeInsets.all(8),
                 child: const Icon(
-                  Icons.more_vert,
-                  color: Color(0xFF666666),
+                  Icons.favorite,
+                  color: Color(0xFFB91C1C),
                   size: 20,
                 ),
               ),
@@ -317,93 +267,40 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
     );
   }
 
-  void _showTrackOptions(MusicTrack track) {
-    final isLiked = LikedSongsService.isTrackLiked(track.webpageUrl);
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.play_arrow, color: Colors.white),
-              title: const Text(
-                'Play', 
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _playTrack(track);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border, 
-                color: isLiked ? const Color(0xFFB91C1C) : Colors.white
-              ),
-              title: Text(
-                isLiked ? 'Unlike' : 'Like', 
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _toggleLike(track);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share, color: Colors.white),
-              title: const Text(
-                'Share', 
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  void _toggleLike(MusicTrack track) async {
-    final isLiked = await LikedSongsService.toggleLikedSong(track);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isLiked ? 'Added to liked songs' : 'Removed from liked songs',
-          style: const TextStyle(fontFamily: 'monospace'),
-        ),
-        backgroundColor: const Color(0xFF1C1C1E),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
   void _playTrack(MusicTrack track) {
-    final trackIndex = _musicTracks.indexWhere((t) => t.webpageUrl == track.webpageUrl);
+    final trackIndex = _likedSongs.indexWhere((t) => t.webpageUrl == track.webpageUrl);
     if (trackIndex != -1) {
       // Play the track and set up the entire queue
-      MusicPlayerController().playTrackFromQueue(_musicTracks, trackIndex);
+      MusicPlayerController().playTrackFromQueue(_likedSongs, trackIndex);
     } else {
       // Fallback to single track play
       MusicPlayerController().playTrack(track);
     }
+  }
+
+  void _unlikeSong(MusicTrack track) async {
+    await LikedSongsService.removeLikedSong(track.webpageUrl);
+    setState(() {
+      _likedSongs = LikedSongsService.getLikedSongs();
+    });
+
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Removed from liked songs',
+          style: const TextStyle(
+            fontFamily: 'monospace',
+          ),
+        ),
+        backgroundColor: const Color(0xFF1C1C1E),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
   }
 }

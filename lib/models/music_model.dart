@@ -67,6 +67,31 @@ class MusicTrack {
       webpageUrl: json['webpage_url']?.toString() ?? '',
     );
   }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'artist': artist,
+      'album': album,
+      'audio_url': audioUrl,
+      'availability': availability,
+      'category': category,
+      'description': description,
+      'duration': duration,
+      'duration_string': durationString,
+      'extractor': extractor,
+      'like_count': likeCount,
+      'live_status': liveStatus,
+      'poster_image': posterImage,
+      'source': source,
+      'thumbnail': thumbnail,
+      'upload_date': uploadDate,
+      'uploader': uploader,
+      'view_count': viewCount,
+      'webpage_url': webpageUrl,
+    };
+  }
 }
 
 class MusicApiResponse {

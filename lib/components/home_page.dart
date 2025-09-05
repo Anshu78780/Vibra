@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'music_queue_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
+import 'liked_songs_page.dart';
 import 'mini_music_player.dart';
+import '../services/liked_songs_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,8 +19,20 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = [
     const MusicQueuePage(),
     const SearchPage(),
+    const LikedSongsPage(),
     const SettingsPage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLikedSongs();
+  }
+  
+  Future<void> _loadLikedSongs() async {
+    // Load liked songs from cache when app starts
+    await LikedSongsService.loadCachedLikedSongs();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +85,11 @@ class _HomePageState extends State<HomePage> {
               icon: Icon(Icons.search_outlined),
               activeIcon: Icon(Icons.search),
               label: 'Search',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.favorite_outline),
+              activeIcon: Icon(Icons.favorite),
+              label: 'Liked',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),

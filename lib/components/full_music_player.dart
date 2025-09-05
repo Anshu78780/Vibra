@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../controllers/music_player_controller.dart';
 import '../components/universal_loader.dart';
+import '../services/liked_songs_service.dart';
 
 class FullMusicPlayer extends StatefulWidget {
   const FullMusicPlayer({super.key});
@@ -11,11 +12,13 @@ class FullMusicPlayer extends StatefulWidget {
 
 class _FullMusicPlayerState extends State<FullMusicPlayer> {
   final MusicPlayerController _controller = MusicPlayerController();
+  bool _isLiked = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onPlayerStateChanged);
+    _checkIfLiked();
   }
 
   @override
@@ -27,6 +30,40 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
   void _onPlayerStateChanged() {
     if (mounted) {
       setState(() {});
+      _checkIfLiked();
+    }
+  }
+
+  void _checkIfLiked() {
+    if (_controller.currentTrack != null) {
+      final isLiked = LikedSongsService.isTrackLiked(_controller.currentTrack!.webpageUrl);
+      if (isLiked != _isLiked) {
+        setState(() {
+          _isLiked = isLiked;
+        });
+      }
+    }
+  }
+
+  void _toggleLike() async {
+    if (_controller.currentTrack != null) {
+      final isLiked = await LikedSongsService.toggleLikedSong(_controller.currentTrack!);
+      setState(() {
+        _isLiked = isLiked;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isLiked ? 'Added to liked songs' : 'Removed from liked songs',
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+          backgroundColor: const Color(0xFF1C1C1E),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -391,15 +428,21 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.favorite_border, color: Colors.white),
-              title: const Text(
-                'Like',
-                style: TextStyle(
+              leading: Icon(
+                _isLiked ? Icons.favorite : Icons.favorite_border, 
+                color: _isLiked ? const Color(0xFFB91C1C) : Colors.white
+              ),
+              title: Text(
+                _isLiked ? 'Unlike' : 'Like',
+                style: const TextStyle(
                   color: Colors.white,
                   fontFamily: 'monospace',
                 ),
               ),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pop(context);
+                _toggleLike();
+              },
             ),
             ListTile(
               leading: const Icon(Icons.share, color: Colors.white),
