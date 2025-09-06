@@ -10,6 +10,7 @@ import '../services/preloading_service.dart';
 import '../services/download_service.dart';
 import '../services/windows_media_service.dart';
 import '../services/youtube_fallback_service.dart';
+import '../services/song_history_service.dart';
 
 class MusicPlayerController extends ChangeNotifier {
   static final MusicPlayerController _instance = MusicPlayerController._internal();
@@ -407,6 +408,14 @@ class MusicPlayerController extends ChangeNotifier {
       // Start playback
       await _audioPlayer.play();
       print('✅ Playback started successfully');
+      
+      // Add track to history when playback starts successfully
+      try {
+        await SongHistoryService().addToHistory(track);
+        print('📝 Added track to history: ${track.title}');
+      } catch (e) {
+        print('⚠️ Failed to add track to history: $e');
+      }
 
   // Update metadata with actual duration after setUrl
   final item = _toMediaItem(track, duration: _audioPlayer.duration);

@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'downloads_page.dart';
+import 'song_history_page.dart';
 
 import 'update_dialog.dart';
 import '../services/update_manager.dart';
@@ -110,11 +111,25 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Only show Downloads on non-Windows platforms
-          if (!Platform.isWindows)
-            _buildSettingsSection(
-              title: 'General',
-              items: [
+          // General section - available on all platforms
+          _buildSettingsSection(
+            title: 'General',
+            items: [
+              _buildSettingsItem(
+                icon: Icons.history,
+                title: 'Listening History',
+                subtitle: 'View your played songs and statistics',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SongHistoryPage(),
+                    ),
+                  );
+                },
+              ),
+              // Only show Downloads on non-Windows platforms
+              if (!Platform.isWindows)
                 _buildSettingsItem(
                   icon: Icons.storage,
                   title: 'Downloads',
@@ -128,9 +143,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     );
                   },
                 ),
-              ],
-            ),
-          if (!Platform.isWindows) const SizedBox(height: 16),
+            ],
+          ),
+          const SizedBox(height: 16),
           
           // Notifications section - display only for now
           _buildSettingsSection(
