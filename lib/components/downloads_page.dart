@@ -57,7 +57,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
           SnackBar(
             content: Text(
               'Deleted ${track.title}',
-              style: const TextStyle(fontFamily: 'monospace'),
+              style: const TextStyle(fontFamily: 'CascadiaCode'),
             ),
             backgroundColor: const Color(0xFF1C1C1E),
             behavior: SnackBarBehavior.floating,
@@ -70,7 +70,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
           SnackBar(
             content: Text(
               'Failed to delete: $e',
-              style: const TextStyle(fontFamily: 'monospace'),
+              style: const TextStyle(fontFamily: 'CascadiaCode'),
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
@@ -112,7 +112,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
           ),
         ),
         centerTitle: true,
@@ -128,7 +128,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
               ),
             )
           : _downloadedTracks.isEmpty
@@ -155,7 +155,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
               color: Colors.grey[400],
               fontSize: 20,
               fontWeight: FontWeight.w500,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
           const SizedBox(height: 8),
@@ -164,7 +164,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ],
@@ -182,7 +182,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
           child: ElevatedButton.icon(
             onPressed: _downloadedTracks.isNotEmpty ? _playAllDownloads : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFB91C1C),
+              backgroundColor: const Color(0xFF6366F1),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -194,7 +194,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
             label: Text(
               'Play All (${_downloadedTracks.length} songs)',
               style: const TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -229,12 +229,12 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     child: progress != null && progress < 1.0
                         ? CircularProgressIndicator(
                             value: progress,
-                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
                             backgroundColor: Colors.grey[700],
                           )
                         : const Icon(
                             Icons.music_note,
-                            color: Color(0xFFB91C1C),
+                            color: Color(0xFF6366F1),
                             size: 28,
                     ),
             ),
@@ -244,7 +244,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -258,7 +258,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   style: const TextStyle(
                     color: Color(0xFF999999),
                     fontSize: 14,
-                    fontFamily: 'monospace',
+                    fontFamily: 'CascadiaCode',
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -268,9 +268,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   Text(
                     'Downloading ${(progress * 100).toStringAsFixed(0)}%',
                     style: const TextStyle(
-                      color: Color(0xFFB91C1C),
+                      color: Color(0xFF6366F1),
                       fontSize: 12,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                   ),
                 ],
@@ -282,7 +282,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
                     ),
                   )
                 : PopupMenuButton<String>(
@@ -307,7 +307,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                               'Play',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontFamily: 'monospace',
+                                fontFamily: 'CascadiaCode',
                               ),
                             ),
                           ],
@@ -323,7 +323,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                               'Delete',
                               style: TextStyle(
                                 color: Colors.red,
-                                fontFamily: 'monospace',
+                                fontFamily: 'CascadiaCode',
                               ),
                             ),
                           ],
@@ -355,14 +355,14 @@ class _DownloadsPageState extends State<DownloadsPage> {
           'Clear All Downloads',
           style: TextStyle(
             color: Colors.white,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
           ),
         ),
         content: const Text(
           'Are you sure you want to delete all downloaded songs?',
           style: TextStyle(
             color: Color(0xFF999999),
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
           ),
         ),
         actions: [
@@ -372,7 +372,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
               'Cancel',
               style: TextStyle(
                 color: Color(0xFF999999),
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ),
@@ -387,7 +387,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   const SnackBar(
                     content: Text(
                       'All downloads cleared',
-                      style: TextStyle(fontFamily: 'monospace'),
+                      style: TextStyle(fontFamily: 'CascadiaCode'),
                     ),
                     backgroundColor: Color(0xFF1C1C1E),
                     behavior: SnackBarBehavior.floating,
@@ -399,7 +399,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
               'Delete All',
               style: TextStyle(
                 color: Colors.red,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ),

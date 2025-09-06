@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import '../models/music_model.dart';
 import '../services/music_service.dart';
 import '../services/suggestion_service.dart';
 import '../services/search_history_service.dart';
 import '../controllers/music_player_controller.dart';
+import '../utils/app_colors.dart';
 import 'dart:async';
 
 class SearchPage extends StatefulWidget {
@@ -189,15 +191,15 @@ class _SearchPageState extends State<SearchPage> {
         FocusScope.of(context).unfocus();
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.background,
           title: const Text(
             'Search',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
           centerTitle: true,
@@ -210,38 +212,47 @@ class _SearchPageState extends State<SearchPage> {
               // Search input
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1C1C1E),
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.cardBackground,
+                    width: 1,
+                  ),
                 ),
                 child: TextField(
                   controller: _searchController,
                   focusNode: _searchFocusNode,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'monospace',
+                    color: AppColors.textPrimary,
+                    fontFamily: 'CascadiaCode',
                   ),
                   decoration: InputDecoration(
                     hintText: 'Search for music...',
                     hintStyle: const TextStyle(
-                      color: Color(0xFF666666),
-                      fontFamily: 'monospace',
+                      color: AppColors.textMuted,
+                      fontFamily: 'CascadiaCode',
                     ),
                     prefixIcon: const Icon(
                       Icons.search,
-                      color: Color(0xFF666666),
+                      color: AppColors.textMuted,
                     ),
                     suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, color: Color(0xFF666666)),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _showSuggestions = false;
-                                _showHistory = true;
-                                _searchResults = [];
-                                _suggestions = [];
-                              });
-                            },
+                        ? MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: IconButton(
+                              icon: const Icon(Icons.clear, color: AppColors.textMuted),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _showSuggestions = false;
+                                  _showHistory = true;
+                                  _searchResults = [];
+                                  _suggestions = [];
+                                });
+                              },
+                              hoverColor: AppColors.cardBackground.withOpacity(0.5),
+                              splashColor: AppColors.primary.withOpacity(0.2),
+                            ),
                           )
                         : null,
                     border: InputBorder.none,
@@ -299,15 +310,15 @@ class _SearchPageState extends State<SearchPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              color: Color(0xFFB91C1C),
+              color: AppColors.primary,
               strokeWidth: 3,
             ),
             SizedBox(height: 16),
             Text(
               'Searching...',
               style: TextStyle(
-                color: Colors.white70,
-                fontFamily: 'monospace',
+                color: AppColors.textSecondary,
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ],
@@ -322,37 +333,50 @@ class _SearchPageState extends State<SearchPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error, color: Colors.red, size: 48),
+              const Icon(Icons.error, color: AppColors.error, size: 48),
               const SizedBox(height: 16),
               const Text(
                 'Search failed',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 _errorMessage!,
                 style: const TextStyle(
-                  color: Colors.red,
-                  fontFamily: 'monospace',
+                  color: AppColors.error,
+                  fontFamily: 'CascadiaCode',
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _performSearch(_lastQuery),
-                icon: const Icon(Icons.refresh),
-                label: const Text(
-                  'Try Again',
-                  style: TextStyle(fontFamily: 'monospace'),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: ElevatedButton.icon(
+                  onPressed: () => _performSearch(_lastQuery),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text(
+                    'Try Again',
+                    style: TextStyle(fontFamily: 'CascadiaCode'),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.textPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ).copyWith(
+                    overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                      (Set<MaterialState> states) {
+                        if (states.contains(MaterialState.hovered)) {
+                          return AppColors.primaryDark;
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -377,9 +401,9 @@ class _SearchPageState extends State<SearchPage> {
           child: Text(
             'Search suggestions',
             style: TextStyle(
-              color: Color(0xFF999999),
+              color: AppColors.textMuted,
               fontSize: 14,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ),
@@ -387,7 +411,7 @@ class _SearchPageState extends State<SearchPage> {
           child: _isLoadingSuggestions
               ? const Center(
                   child: CircularProgressIndicator(
-                    color: Color(0xFFB91C1C),
+                    color: AppColors.primary,
                     strokeWidth: 2,
                   ),
                 )
@@ -396,9 +420,8 @@ class _SearchPageState extends State<SearchPage> {
                   physics: const BouncingScrollPhysics(),
                   itemBuilder: (context, index) {
                     final suggestion = _suggestions[index];
-                    return GestureDetector(
+                    return _HoverableListTile(
                       onTap: () => _selectSuggestion(suggestion),
-                      behavior: HitTestBehavior.opaque,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -407,7 +430,7 @@ class _SearchPageState extends State<SearchPage> {
                         decoration: const BoxDecoration(
                           border: Border(
                             bottom: BorderSide(
-                              color: Color(0xFF1A1A1A),
+                              color: AppColors.cardBackground,
                               width: 0.5,
                             ),
                           ),
@@ -416,7 +439,7 @@ class _SearchPageState extends State<SearchPage> {
                           children: [
                             const Icon(
                               Icons.search,
-                              color: Color(0xFF666666),
+                              color: AppColors.textMuted,
                               size: 20,
                             ),
                             const SizedBox(width: 12),
@@ -424,9 +447,9 @@ class _SearchPageState extends State<SearchPage> {
                               child: Text(
                                 suggestion,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.textPrimary,
                                   fontSize: 15,
-                                  fontFamily: 'monospace',
+                                  fontFamily: 'CascadiaCode',
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -434,7 +457,7 @@ class _SearchPageState extends State<SearchPage> {
                             ),
                             const Icon(
                               Icons.north_west,
-                              color: Color(0xFF666666),
+                              color: AppColors.textMuted,
                               size: 16,
                             ),
                           ],
@@ -460,20 +483,23 @@ class _SearchPageState extends State<SearchPage> {
               const Text(
                 'Recent searches',
                 style: TextStyle(
-                  color: Color(0xFF999999),
+                  color: AppColors.textMuted,
                   fontSize: 14,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
               ),
               if (_searchHistory.isNotEmpty)
-                GestureDetector(
-                  onTap: _clearSearchHistory,
-                  child: const Text(
-                    'Clear all',
-                    style: TextStyle(
-                      color: Color(0xFFB91C1C),
-                      fontSize: 12,
-                      fontFamily: 'monospace',
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: _clearSearchHistory,
+                    child: const Text(
+                      'Clear all',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontFamily: 'CascadiaCode',
+                      ),
                     ),
                   ),
                 ),
@@ -486,9 +512,8 @@ class _SearchPageState extends State<SearchPage> {
             physics: const BouncingScrollPhysics(),
             itemBuilder: (context, index) {
               final historyItem = _searchHistory[index];
-              return GestureDetector(
+              return _HoverableListTile(
                 onTap: () => _selectFromHistory(historyItem),
-                behavior: HitTestBehavior.opaque,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -497,7 +522,7 @@ class _SearchPageState extends State<SearchPage> {
                   decoration: const BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.cardBackground,
                         width: 0.5,
                       ),
                     ),
@@ -506,7 +531,7 @@ class _SearchPageState extends State<SearchPage> {
                     children: [
                       const Icon(
                         Icons.history,
-                        color: Color(0xFF666666),
+                        color: AppColors.textMuted,
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -514,20 +539,23 @@ class _SearchPageState extends State<SearchPage> {
                         child: Text(
                           historyItem,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontSize: 15,
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () => _removeFromHistory(historyItem),
-                        child: const Icon(
-                          Icons.close,
-                          color: Color(0xFF666666),
-                          size: 16,
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () => _removeFromHistory(historyItem),
+                          child: const Icon(
+                            Icons.close,
+                            color: AppColors.textMuted,
+                            size: 16,
+                          ),
                         ),
                       ),
                     ],
@@ -549,24 +577,24 @@ class _SearchPageState extends State<SearchPage> {
           Icon(
             Icons.search,
             size: 64,
-            color: Color(0xFF333333),
+            color: AppColors.cardBackground,
           ),
           SizedBox(height: 16),
           Text(
             'Search for music',
             style: TextStyle(
-              color: Color(0xFF666666),
+              color: AppColors.textMuted,
               fontSize: 16,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
           SizedBox(height: 8),
           Text(
             'Find your favorite songs and artists',
             style: TextStyle(
-              color: Color(0xFF444444),
+              color: Color(0xFF6B7280), // Slightly more muted gray
               fontSize: 14,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ],
@@ -583,9 +611,9 @@ class _SearchPageState extends State<SearchPage> {
           child: Text(
             'Found ${_searchResults.length} results for "$_lastQuery"',
             style: const TextStyle(
-              color: Color(0xFF999999),
+              color: AppColors.textMuted,
               fontSize: 14,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ),
@@ -601,7 +629,7 @@ class _SearchPageState extends State<SearchPage> {
                   _buildMusicTile(track),
                   if (index < _searchResults.length - 1)
                     const Divider(
-                      color: Color(0xFF1A1A1A),
+                      color: AppColors.cardBackground,
                       height: 1,
                       thickness: 0.5,
                       indent: 88,
@@ -616,9 +644,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildMusicTile(MusicTrack track) {
-    return GestureDetector(
+    return _HoverableListTile(
       onTap: () => _playTrack(track),
-      behavior: HitTestBehavior.opaque,
       child: Container(
         height: 68,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -640,14 +667,14 @@ class _SearchPageState extends State<SearchPage> {
                         return Container(
                           width: 56,
                           height: 56,
-                          color: const Color(0xFF1C1C1E),
+                          color: AppColors.surface,
                           child: const Center(
                             child: SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
+                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                               ),
                             ),
                           ),
@@ -658,12 +685,12 @@ class _SearchPageState extends State<SearchPage> {
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1C1C1E),
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
                             Icons.music_note,
-                            color: Color(0xFF666666),
+                            color: AppColors.textMuted,
                             size: 24,
                           ),
                         );
@@ -673,12 +700,12 @@ class _SearchPageState extends State<SearchPage> {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1C1C1E),
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.music_note,
-                        color: Color(0xFF666666),
+                        color: AppColors.textMuted,
                         size: 24,
                       ),
                     ),
@@ -693,10 +720,10 @@ class _SearchPageState extends State<SearchPage> {
                   Text(
                     track.title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -705,10 +732,10 @@ class _SearchPageState extends State<SearchPage> {
                   Text(
                     track.artist,
                     style: const TextStyle(
-                      color: Color(0xFF999999),
+                      color: AppColors.textSecondary,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -720,23 +747,26 @@ class _SearchPageState extends State<SearchPage> {
             Text(
               track.durationString,
               style: const TextStyle(
-                color: Color(0xFF666666),
+                color: AppColors.textMuted,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
             const SizedBox(width: 16),
             // More options button
-            GestureDetector(
-              onTap: () => _showTrackOptions(track),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  Icons.more_vert,
-                  color: Color(0xFF666666),
-                  size: 20,
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => _showTrackOptions(track),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  child: const Icon(
+                    Icons.more_vert,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -749,7 +779,7 @@ class _SearchPageState extends State<SearchPage> {
   void _showTrackOptions(MusicTrack track) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -758,41 +788,53 @@ class _SearchPageState extends State<SearchPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.play_arrow, color: Colors.white),
-              title: const Text(
-                'Play', 
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: ListTile(
+                leading: const Icon(Icons.play_arrow, color: AppColors.textPrimary),
+                title: const Text(
+                  'Play', 
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontFamily: 'CascadiaCode',
+                  ),
                 ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _playTrack(track);
+                },
+                hoverColor: AppColors.cardBackground.withOpacity(0.5),
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _playTrack(track);
-              },
             ),
-            ListTile(
-              leading: const Icon(Icons.favorite_border, color: Colors.white),
-              title: const Text(
-                'Like', 
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: ListTile(
+                leading: const Icon(Icons.favorite_border, color: AppColors.textPrimary),
+                title: const Text(
+                  'Like', 
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontFamily: 'CascadiaCode',
+                  ),
                 ),
+                onTap: () => Navigator.pop(context),
+                hoverColor: AppColors.cardBackground.withOpacity(0.5),
               ),
-              onTap: () => Navigator.pop(context),
             ),
-            ListTile(
-              leading: const Icon(Icons.share, color: Colors.white),
-              title: const Text(
-                'Share', 
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: ListTile(
+                leading: const Icon(Icons.share, color: AppColors.textPrimary),
+                title: const Text(
+                  'Share', 
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontFamily: 'CascadiaCode',
+                  ),
                 ),
+                onTap: () => Navigator.pop(context),
+                hoverColor: AppColors.cardBackground.withOpacity(0.5),
               ),
-              onTap: () => Navigator.pop(context),
             ),
           ],
         ),
@@ -801,13 +843,59 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _playTrack(MusicTrack track) {
-    final trackIndex = _searchResults.indexWhere((t) => t.webpageUrl == track.webpageUrl);
-    if (trackIndex != -1 && _searchResults.isNotEmpty) {
-      // Play the track and set up the search results as queue
-      MusicPlayerController().playTrackFromQueue(_searchResults, trackIndex);
-    } else {
-      // Fallback to single track play
-      MusicPlayerController().playTrack(track);
-    }
+    // Use recommendations instead of search results as queue for better suggestions
+    MusicPlayerController().playTrackWithRecommendations(track);
+  }
+}
+
+// Hoverable list tile widget for Windows hover effects
+class _HoverableListTile extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _HoverableListTile({
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  State<_HoverableListTile> createState() => _HoverableListTileState();
+}
+
+class _HoverableListTileState extends State<_HoverableListTile> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+          setState(() {
+            _isHovered = true;
+          });
+        }
+      },
+      onExit: (_) {
+        if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+          setState(() {
+            _isHovered = false;
+          });
+        }
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: _isHovered 
+                ? AppColors.surface.withOpacity(0.8)
+                : Colors.transparent,
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
   }
 }

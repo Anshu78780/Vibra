@@ -1,7 +1,10 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'downloads_page.dart';
+
 import 'update_dialog.dart';
 import '../services/update_manager.dart';
+import '../utils/app_colors.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -46,9 +49,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     SnackBar(
                       content: Text(
                         'Failed to open download link: $e',
-                        style: const TextStyle(fontFamily: 'monospace'),
+                        style: const TextStyle(fontFamily: 'CascadiaCode'),
                       ),
-                      backgroundColor: const Color(0xFFB91C1C),
+                      backgroundColor: AppColors.primary,
                     ),
                   );
                 }
@@ -61,9 +64,9 @@ class _SettingsPageState extends State<SettingsPage> {
             const SnackBar(
               content: Text(
                 'You have the latest version!',
-                style: TextStyle(fontFamily: 'monospace'),
+                style: TextStyle(fontFamily: 'CascadiaCode'),
               ),
-              backgroundColor: Color(0xFF4CAF50),
+              backgroundColor: AppColors.success,
             ),
           );
         }
@@ -78,9 +81,9 @@ class _SettingsPageState extends State<SettingsPage> {
           SnackBar(
             content: Text(
               'Failed to check for updates: $e',
-              style: const TextStyle(fontFamily: 'monospace'),
+              style: const TextStyle(fontFamily: 'CascadiaCode'),
             ),
-            backgroundColor: const Color(0xFFB91C1C),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -90,15 +93,15 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
         title: const Text(
           'Settings',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
           ),
         ),
         centerTitle: true,
@@ -107,25 +110,69 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Only show Downloads on non-Windows platforms
+          if (!Platform.isWindows)
+            _buildSettingsSection(
+              title: 'General',
+              items: [
+                _buildSettingsItem(
+                  icon: Icons.storage,
+                  title: 'Downloads',
+                  subtitle: 'Manage downloads',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DownloadsPage(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          if (!Platform.isWindows) const SizedBox(height: 16),
+          
+          // Notifications section - display only for now
           _buildSettingsSection(
-            title: 'General',
+            title: 'Notifications',
             items: [
               _buildSettingsItem(
-                icon: Icons.storage,
-                title: 'Downloads',
-                subtitle: 'Manage downloads',
+                icon: Icons.notifications,
+                title: 'Push Notifications',
+                subtitle: 'Coming soon - notification preferences',
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DownloadsPage(),
+                  // Show coming soon message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Notification settings coming soon!',
+                        style: TextStyle(fontFamily: 'CascadiaCode'),
+                      ),
+                      backgroundColor: AppColors.primary,
                     ),
                   );
                 },
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Soon',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'CascadiaCode',
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+          
           _buildSettingsSection(
             title: 'App',
             items: [
@@ -142,7 +189,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Color(0xFFB91C1C),
+                          color: AppColors.primary,
                         ),
                       )
                     : null,
@@ -166,17 +213,21 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Text(
             title,
             style: const TextStyle(
-              color: Color(0xFF999999),
+              color: AppColors.textMuted,
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.cardBackground,
+              width: 1,
+            ),
           ),
           child: Column(children: items),
         ),
@@ -191,32 +242,53 @@ class _SettingsPageState extends State<SettingsPage> {
     required VoidCallback onTap,
     Widget? trailing,
   }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: const Color(0xFF666666),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontFamily: 'monospace',
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.cardBackground,
+            width: 0.5,
+          ),
         ),
       ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(
-          color: Color(0xFF999999),
-          fontSize: 14,
-          fontFamily: 'monospace',
+      child: ListTile(
+        leading: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: AppColors.secondary,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: AppColors.background,
+            size: 18,
+          ),
         ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'CascadiaCode',
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 14,
+            fontFamily: 'CascadiaCode',
+          ),
+        ),
+        trailing: trailing ?? const Icon(
+          Icons.chevron_right,
+          color: AppColors.textMuted,
+        ),
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
-      trailing: trailing ?? const Icon(
-        Icons.chevron_right,
-        color: Color(0xFF666666),
-      ),
-      onTap: onTap,
     );
   }
 }

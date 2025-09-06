@@ -48,101 +48,92 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
   }
 
   Widget _buildWindowsMiniPlayer() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const FullMusicPlayer(),
-          ),
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        height: 48,
-        margin: const EdgeInsets.only(right: 16, top: 6, bottom: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF2A2A2E),
-              Color(0xFF1C1C1E),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(0xFF3A3A3E),
-            width: 0.6,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
+    return Container(
+      width: double.infinity,
+      height: 60,
+      margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2A2A2E),
+            Color(0xFF1C1C1E),
           ],
         ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF3A3A3E),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             // Smaller album artwork
             Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.15),
-                    blurRadius: 3,
+                    color: const Color(0xFF6366F1).withOpacity(0.2),
+                    blurRadius: 4,
                     spreadRadius: 0,
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 child: _controller.currentTrack!.thumbnail.isNotEmpty
                     ? Image.network(
                         _controller.currentTrack!.thumbnail,
-                        width: 36,
-                        height: 36,
+                        width: 44,
+                        height: 44,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
-                            width: 36,
-                            height: 36,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF3A3A3E), Color(0xFF2C2C2E)],
                               ),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
                               Icons.music_note_rounded,
                               color: Color(0xFF999999),
-                              size: 16,
+                              size: 20,
                             ),
                           );
                         },
                       )
                     : Container(
-                        width: 36,
-                        height: 36,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF3A3A3E), Color(0xFF2C2C2E)],
                           ),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.music_note_rounded,
                           color: Color(0xFF999999),
-                          size: 16,
+                          size: 20,
                         ),
                       ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             // Compact track info
             Expanded(
               child: Column(
@@ -153,7 +144,7 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                     _controller.currentTrack!.title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       fontFamily: 'CascadiaCode',
                       letterSpacing: 0.1,
@@ -161,12 +152,12 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 2),
                   Text(
                     _controller.currentTrack!.artist,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.6),
-                      fontSize: 10,
+                      fontSize: 11,
                       fontFamily: 'CascadiaCode',
                       letterSpacing: 0.1,
                     ),
@@ -179,9 +170,9 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
             // Compact controls
             if (_controller.isLoading)
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 child: const UniversalLoader(
-                  size: 14,
+                  size: 16,
                   showMessage: false,
                 ),
               )
@@ -191,16 +182,16 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                   _controller.retry();
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.orange.withOpacity(0.2)),
                   ),
                   child: const Icon(
                     Icons.refresh_rounded,
                     color: Colors.orange,
-                    size: 14,
+                    size: 16,
                   ),
                 ),
               )
@@ -215,9 +206,9 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                         ? () => _controller.playPrevious()
                         : null,
                     isEnabled: _controller.hasPrevious && _controller.canControl,
-                    size: 16,
+                    size: 18,
                   ),
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 4),
                   // Play/Pause button
                   Container(
                     decoration: BoxDecoration(
@@ -227,11 +218,11 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                             )
                           : null,
                       color: _controller.canControl ? null : const Color(0xFF4A4A4E),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: _controller.canControl ? [
                         BoxShadow(
                           color: const Color(0xFF6366F1).withOpacity(0.3),
-                          blurRadius: 4,
+                          blurRadius: 6,
                           spreadRadius: 1,
                         ),
                       ] : null,
@@ -248,11 +239,11 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                         }
                       } : null,
                       isEnabled: _controller.canControl,
-                      size: 18,
+                      size: 20,
                       isPrimary: true,
                     ),
                   ),
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 4),
                   // Next button
                   _buildCompactControlButton(
                     icon: Icons.skip_next_rounded,
@@ -260,17 +251,15 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                         ? () => _controller.playNext()
                         : null,
                     isEnabled: _controller.hasNext && _controller.canControl,
-                    size: 16,
+                    size: 18,
                   ),
                 ],
               ),
           ],
         ),
       ),
-    ),
-  );
+    );
   }
-  
 
   Widget _buildMobileMiniPlayer() {
     return GestureDetector(
@@ -520,7 +509,7 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.all(isPrimary ? 6 : 4),
+        padding: EdgeInsets.all(isPrimary ? 8 : 6),
         child: Icon(
           icon,
           color: isEnabled 

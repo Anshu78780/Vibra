@@ -11,9 +11,28 @@
     <application
         android:name="${applicationName}"
         android:label="Vibra"
-        android:icon="@mipmap/launcher_icon"
+        android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
+
+        <!-- OneSignal Configuration -->
+        <meta-data 
+            android:name="onesignal_app_id" 
+            android:value="ONESIGNAL_APP_ID" />
+        
+        <!-- OneSignal Notification Icon Configuration -->
+        <meta-data 
+            android:name="onesignal_large_icon" 
+            android:resource="@mipmap/ic_launcher" />
+        
+        <meta-data 
+            android:name="onesignal_small_icon" 
+            android:resource="@drawable/ic_vibra_notification" />
+        
+        <!-- OneSignal Notification Accent Color -->
+        <meta-data 
+            android:name="onesignal_notification_accent_color" 
+            android:resource="@android:color/white" />
 
         <!-- Optional: Android Auto support -->
         <meta-data

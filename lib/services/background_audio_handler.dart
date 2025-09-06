@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
@@ -26,9 +27,15 @@ class BackgroundAudioHandler extends BaseAudioHandler
   }
 
   Future<void> _init() async {
-    // Configure audio focus/session
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
+    // Configure audio focus/session - skip on Windows as it may not be supported
+    if (!Platform.isWindows) {
+      try {
+        final session = await AudioSession.instance;
+        await session.configure(const AudioSessionConfiguration.music());
+      } catch (e) {
+        print('Warning: Could not configure audio session: $e');
+      }
+    }
 
     // Map just_audio state to audio_service playbackState + position
     _playerStateSub = _player.playerStateStream.listen((state) {
@@ -87,6 +94,15 @@ class BackgroundAudioHandler extends BaseAudioHandler
     this.mediaItem.add(mediaItem);
     // Push single-item queue for nice UI on some platforms
     queue.add([mediaItem]);
+    
+    // On Windows, also explicitly update playback state to force system media controls refresh
+    if (Platform.isWindows) {
+      final currentState = playbackState.value;
+      playbackState.add(currentState.copyWith(
+        updatePosition: _player.position,
+        bufferedPosition: _player.bufferedPosition,
+      ));
+    }
   }
 
   // Standard transport controls
@@ -149,10 +165,16 @@ Future<AudioHandler> initBackgroundAudio(
     config: AudioServiceConfig(
       androidNotificationChannelId: 'com.vibra.audio',
       androidNotificationChannelName: 'Music Playback',
-  androidNotificationIcon: 'drawable/ic_notification',
+      androidNotificationIcon: 'drawable/ic_notification',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
       preloadArtwork: true,
+      // Windows-specific optimizations
+      androidShowNotificationBadge: !Platform.isWindows,
+      androidResumeOnClick: !Platform.isWindows,
+      // Enable faster media item updates for Windows
+      fastForwardInterval: const Duration(seconds: 10),
+      rewindInterval: const Duration(seconds: 10),
     ),
   );
 }

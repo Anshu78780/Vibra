@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import '../models/music_model.dart';
 import '../controllers/music_player_controller.dart';
 import '../services/liked_songs_service.dart';
 import '../services/user_playlist_service.dart';
+import '../utils/app_colors.dart';
 import 'mini_music_player.dart';
 
 class LikedSongsPage extends StatefulWidget {
@@ -61,15 +63,15 @@ class _LikedSongsPageState extends State<LikedSongsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
         title: const Text(
           'Your Music',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
             fontSize: 20,
           ),
         ),
@@ -78,11 +80,11 @@ class _LikedSongsPageState extends State<LikedSongsPage>
         elevation: 0,
         bottom: TabBar(
           controller: _tabController!,
-          indicatorColor: const Color(0xFFB91C1C),
-          labelColor: const Color(0xFFB91C1C),
-          unselectedLabelColor: Colors.white54,
+          indicatorColor: AppColors.primary,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textSecondary,
           labelStyle: const TextStyle(
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
             fontWeight: FontWeight.w600,
           ),
           tabs: const [
@@ -96,16 +98,16 @@ class _LikedSongsPageState extends State<LikedSongsPage>
         children: [
           RefreshIndicator(
             onRefresh: _loadLikedSongs,
-            backgroundColor: const Color(0xFF1C1C1E),
-            color: const Color(0xFFB91C1C),
+            backgroundColor: AppColors.surface,
+            color: AppColors.primary,
             strokeWidth: 2.5,
             displacement: 40,
             child: _buildLikedSongsTab(),
           ),
           RefreshIndicator(
             onRefresh: _loadUserPlaylists,
-            backgroundColor: const Color(0xFF1C1C1E),
-            color: const Color(0xFFB91C1C),
+            backgroundColor: AppColors.surface,
+            color: AppColors.primary,
             strokeWidth: 2.5,
             displacement: 40,
             child: _buildPlaylistsTab(),
@@ -115,8 +117,8 @@ class _LikedSongsPageState extends State<LikedSongsPage>
       floatingActionButton: (_tabController?.index == 1)
           ? FloatingActionButton(
               onPressed: _showAddPlaylistDialog,
-              backgroundColor: const Color(0xFFB91C1C),
-              child: const Icon(Icons.add, color: Colors.white),
+              backgroundColor: AppColors.primary,
+              child: const Icon(Icons.add, color: AppColors.textPrimary),
             )
           : null,
     );
@@ -126,7 +128,7 @@ class _LikedSongsPageState extends State<LikedSongsPage>
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFFB91C1C),
+          color: AppColors.primary,
           strokeWidth: 3,
         ),
       );
@@ -140,16 +142,16 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             Icon(
               Icons.favorite_border,
               size: 72,
-              color: Colors.white.withOpacity(0.5),
+              color: AppColors.textMuted,
             ),
             const SizedBox(height: 16),
             const Text(
               'No liked songs yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
             const SizedBox(height: 8),
@@ -158,9 +160,9 @@ class _LikedSongsPageState extends State<LikedSongsPage>
               child: Text(
                 'Your favorite songs will appear here',
                 style: TextStyle(
-                  color: Colors.white54,
+                  color: AppColors.textSecondary,
                   fontSize: 14,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -183,7 +185,7 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             _buildMusicTile(track),
             if (index < _likedSongs.length - 1)
               const Divider(
-                color: Color(0xFF1A1A1A),
+                color: AppColors.cardBackground,
                 height: 1,
                 thickness: 0.5,
                 indent: 88,
@@ -198,7 +200,7 @@ class _LikedSongsPageState extends State<LikedSongsPage>
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFFB91C1C),
+          color: AppColors.primary,
           strokeWidth: 3,
         ),
       );
@@ -214,30 +216,30 @@ class _LikedSongsPageState extends State<LikedSongsPage>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.white.withOpacity(0.05),
-                    Colors.white.withOpacity(0.02),
+                    AppColors.surface.withOpacity(0.8),
+                    AppColors.cardBackground.withOpacity(0.6),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: AppColors.cardBackground,
                   width: 1,
                 ),
               ),
               child: Icon(
                 Icons.playlist_add_rounded,
                 size: 64,
-                color: Colors.white.withOpacity(0.4),
+                color: AppColors.textMuted,
               ),
             ),
             const SizedBox(height: 24),
             const Text(
               'No playlists yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
             const SizedBox(height: 12),
@@ -246,9 +248,9 @@ class _LikedSongsPageState extends State<LikedSongsPage>
               child: Text(
                 'Import your favorite YouTube playlists\nto enjoy them anywhere',
                 style: TextStyle(
-                  color: Color(0xFF999999),
+                  color: AppColors.textSecondary,
                   fontSize: 16,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                   height: 1.4,
                 ),
                 textAlign: TextAlign.center,
@@ -257,16 +259,11 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             const SizedBox(height: 32),
             Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFFB91C1C),
-                    Color(0xFFDC2626),
-                  ],
-                ),
+                gradient: AppColors.primaryLinearGradient,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFB91C1C).withOpacity(0.3),
+                    color: AppColors.primary.withOpacity(0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   ),
@@ -290,9 +287,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                 label: const Text(
                   'Add Your First Playlist',
                   style: TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: 'CascadiaCode',
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -315,19 +313,12 @@ class _LikedSongsPageState extends State<LikedSongsPage>
 
   Widget _buildPlaylistTile(UserPlaylist playlist) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1C1C1E),
-            Color(0xFF2C2C2E),
-          ],
-        ),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF3A3A3E),
+          color: AppColors.cardBackground,
           width: 1,
         ),
         boxShadow: [
@@ -347,33 +338,8 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Playlist icon with gradient
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFB91C1C),
-                        Color(0xFFDC2626),
-                        Color(0xFFEF4444),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFB91C1C).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.playlist_play_rounded,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
+                // Playlist thumbnail with hover effect
+                _PlaylistThumbnail(playlist: playlist),
                 const SizedBox(width: 16),
                 
                 // Playlist info
@@ -384,57 +350,71 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                       Text(
                         playlist.name,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace',
+                          fontFamily: 'CascadiaCode',
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           Icon(
                             Icons.access_time_rounded,
-                            color: const Color(0xFF999999),
+                            color: AppColors.textMuted,
                             size: 14,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Added ${_formatDate(playlist.createdAt)}',
                             style: const TextStyle(
-                              color: Color(0xFF999999),
+                              color: AppColors.textMuted,
                               fontSize: 13,
-                              fontFamily: 'monospace',
+                              fontFamily: 'CascadiaCode',
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                              horizontal: 10,
+                              vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFB91C1C).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(0xFFB91C1C).withOpacity(0.3),
-                                width: 1,
-                              ),
+                              gradient: AppColors.primaryLinearGradient,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            child: const Text(
-                              'YouTube',
-                              style: TextStyle(
-                                color: Color(0xFFB91C1C),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'monospace',
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.play_circle_filled,
+                                  color: AppColors.textPrimary,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'YouTube',
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    fontFamily: 'CascadiaCode',
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -443,63 +423,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                   ),
                 ),
                 
-                // More options button
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3A3A3E).withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: PopupMenuButton<String>(
-                    icon: const Icon(
-                      Icons.more_vert_rounded,
-                      color: Color(0xFF999999),
-                      size: 20,
-                    ),
-                    color: const Color(0xFF2C2C2E),
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(
-                        color: Color(0xFF3A3A3E),
-                        width: 1,
-                      ),
-                    ),
-                    onSelected: (value) {
-                      if (value == 'delete') {
-                        _deletePlaylist(playlist);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(
-                                Icons.delete_rounded,
-                                color: Colors.red,
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Delete Playlist',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                // More options button with hover effect
+                _HoverableIconButton(
+                  onPressed: () => _showPlaylistOptions(playlist),
+                  icon: Icons.more_vert_rounded,
                 ),
               ],
             ),
@@ -537,23 +464,93 @@ class _LikedSongsPageState extends State<LikedSongsPage>
     );
   }
 
+  void _showPlaylistOptions(UserPlaylist playlist) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Open Playlist',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontFamily: 'CascadiaCode',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _openPlaylist(playlist);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.delete_rounded,
+                  color: AppColors.error,
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Delete Playlist',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontFamily: 'CascadiaCode',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _deletePlaylist(playlist);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _deletePlaylist(UserPlaylist playlist) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: AppColors.surface,
         title: const Text(
           'Delete Playlist',
           style: TextStyle(
-            color: Colors.white,
-            fontFamily: 'monospace',
+            color: AppColors.textPrimary,
+            fontFamily: 'CascadiaCode',
           ),
         ),
         content: Text(
           'Are you sure you want to delete "${playlist.name}"?',
           style: const TextStyle(
-            color: Colors.white70,
-            fontFamily: 'monospace',
+            color: AppColors.textSecondary,
+            fontFamily: 'CascadiaCode',
           ),
         ),
         actions: [
@@ -562,8 +559,8 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             child: const Text(
               'Cancel',
               style: TextStyle(
-                color: Colors.white54,
-                fontFamily: 'monospace',
+                color: AppColors.textMuted,
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ),
@@ -579,9 +576,9 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                   SnackBar(
                     content: Text(
                       'Playlist "${playlist.name}" deleted',
-                      style: const TextStyle(fontFamily: 'monospace'),
+                      style: const TextStyle(fontFamily: 'CascadiaCode'),
                     ),
-                    backgroundColor: const Color(0xFF1C1C1E),
+                    backgroundColor: AppColors.surface,
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -590,8 +587,8 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             child: const Text(
               'Delete',
               style: TextStyle(
-                color: Colors.red,
-                fontFamily: 'monospace',
+                color: AppColors.error,
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ),
@@ -634,14 +631,14 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                         return Container(
                           width: 56,
                           height: 56,
-                          color: const Color(0xFF1C1C1E),
+                          color: AppColors.surface,
                           child: const Center(
                             child: SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
+                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                               ),
                             ),
                           ),
@@ -652,12 +649,12 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1C1C1E),
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
                             Icons.music_note,
-                            color: Color(0xFF666666),
+                            color: AppColors.textMuted,
                             size: 24,
                           ),
                         );
@@ -667,12 +664,12 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1C1C1E),
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.music_note,
-                        color: Color(0xFF666666),
+                        color: AppColors.textMuted,
                         size: 24,
                       ),
                     ),
@@ -687,10 +684,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                   Text(
                     track.title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -699,10 +696,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                   Text(
                     track.artist,
                     style: const TextStyle(
-                      color: Color(0xFF999999),
+                      color: AppColors.textSecondary,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -714,10 +711,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             Text(
               track.durationString,
               style: const TextStyle(
-                color: Color(0xFF666666),
+                color: AppColors.textMuted,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
             const SizedBox(width: 16),
@@ -729,7 +726,7 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                 padding: const EdgeInsets.all(8),
                 child: const Icon(
                   Icons.favorite,
-                  color: Color(0xFFB91C1C),
+                  color: AppColors.primary,
                   size: 20,
                 ),
               ),
@@ -764,10 +761,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
         content: Text(
           'Removed from liked songs',
           style: const TextStyle(
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
           ),
         ),
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: AppColors.surface,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
@@ -842,14 +839,14 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [
-                          Color(0xFFB91C1C),
+                          Color(0xFF6366F1),
                           Color(0xFFDC2626),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFB91C1C).withOpacity(0.3),
+                          color: const Color(0xFF6366F1).withOpacity(0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -870,7 +867,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                           'Add Playlist',
                           style: TextStyle(
                             color: Colors.white,
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
                           ),
@@ -880,7 +877,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                           'Import your YouTube playlist',
                           style: TextStyle(
                             color: Color(0xFF999999),
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                             fontSize: 14,
                           ),
                         ),
@@ -910,23 +907,23 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                         controller: _nameController,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontFamily: 'monospace',
+                          fontFamily: 'CascadiaCode',
                           fontSize: 16,
                         ),
                         decoration: InputDecoration(
                           labelText: 'Playlist Name',
                           labelStyle: const TextStyle(
                             color: Color(0xFF999999),
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                           ),
                           hintText: 'My Awesome Playlist',
                           hintStyle: const TextStyle(
                             color: Color(0xFF666666),
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                           ),
                           prefixIcon: const Icon(
                             Icons.music_note,
-                            color: Color(0xFFB91C1C),
+                            color: Color(0xFF6366F1),
                           ),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
@@ -959,19 +956,19 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                         controller: _urlController,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontFamily: 'monospace',
+                          fontFamily: 'CascadiaCode',
                           fontSize: 16,
                         ),
                         decoration: InputDecoration(
                           labelText: 'YouTube Playlist URL',
                           labelStyle: const TextStyle(
                             color: Color(0xFF999999),
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                           ),
                           hintText: 'https://www.youtube.com/playlist?list=...',
                           hintStyle: const TextStyle(
                             color: Color(0xFF666666),
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                             fontSize: 14,
                           ),
                           prefixIcon: Container(
@@ -983,7 +980,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                               errorBuilder: (context, error, stackTrace) {
                                 return const Icon(
                                   Icons.link,
-                                  color: Color(0xFFB91C1C),
+                                  color: Color(0xFF6366F1),
                                 );
                               },
                             ),
@@ -1034,7 +1031,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                                 _errorMessage!,
                                 style: const TextStyle(
                                   color: Colors.red,
-                                  fontFamily: 'monospace',
+                                  fontFamily: 'CascadiaCode',
                                   fontSize: 14,
                                 ),
                               ),
@@ -1073,7 +1070,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                         child: const Text(
                           'Cancel',
                           style: TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: 'CascadiaCode',
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
                           ),
@@ -1090,7 +1087,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                             ? null
                             : const LinearGradient(
                                 colors: [
-                                  Color(0xFFB91C1C),
+                                  Color(0xFF6366F1),
                                   Color(0xFFDC2626),
                                 ],
                               ),
@@ -1100,7 +1097,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                             ? null
                             : [
                                 BoxShadow(
-                                  color: const Color(0xFFB91C1C).withOpacity(0.3),
+                                  color: const Color(0xFF6366F1).withOpacity(0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
@@ -1126,7 +1123,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
                             : const Text(
                                 'Add Playlist',
                                 style: TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: 'CascadiaCode',
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
@@ -1171,7 +1168,7 @@ class _AddPlaylistDialogState extends State<AddPlaylistDialog> {
         SnackBar(
           content: Text(
             'Playlist "${_nameController.text.trim()}" added successfully!',
-            style: const TextStyle(fontFamily: 'monospace'),
+            style: const TextStyle(fontFamily: 'CascadiaCode'),
           ),
           backgroundColor: const Color(0xFF1C1C1E),
           behavior: SnackBarBehavior.floating,
@@ -1232,7 +1229,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
             fontSize: 20,
           ),
         ),
@@ -1242,7 +1239,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
       body: RefreshIndicator(
         onRefresh: _loadPlaylistSongs,
         backgroundColor: const Color(0xFF1C1C1E),
-        color: const Color(0xFFB91C1C),
+        color: const Color(0xFF6366F1),
         strokeWidth: 2.5,
         displacement: 40,
         child: _buildBody(),
@@ -1258,7 +1255,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              color: Color(0xFFB91C1C),
+              color: Color(0xFF6366F1),
               strokeWidth: 3,
             ),
             SizedBox(height: 16),
@@ -1266,7 +1263,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
               'Loading playlist...',
               style: TextStyle(
                 color: Colors.white70,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ],
@@ -1287,7 +1284,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
             const SizedBox(height: 8),
@@ -1295,7 +1292,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
               _errorMessage!,
               style: const TextStyle(
                 color: Colors.white70,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
               textAlign: TextAlign.center,
             ),
@@ -1303,12 +1300,12 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
             ElevatedButton(
               onPressed: _loadPlaylistSongs,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB91C1C),
+                backgroundColor: const Color(0xFF6366F1),
                 foregroundColor: Colors.white,
               ),
               child: const Text(
                 'Retry',
-                style: TextStyle(fontFamily: 'monospace'),
+                style: TextStyle(fontFamily: 'CascadiaCode'),
               ),
             ),
           ],
@@ -1327,7 +1324,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
               'No songs found',
               style: TextStyle(
                 color: Colors.white70,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ],
@@ -1371,7 +1368,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB91C1C)),
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
                         ),
                       ),
                     ),
@@ -1405,7 +1402,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
                       color: Colors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1416,7 +1413,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
                     style: const TextStyle(
                       color: Color(0xFF999999),
                       fontSize: 13,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1429,7 +1426,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
               style: const TextStyle(
                 color: Color(0xFF666666),
                 fontSize: 12,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
             const SizedBox(width: 8),
@@ -1475,7 +1472,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
                 'Play', 
                 style: TextStyle(
                   color: Colors.white,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
               ),
               onTap: () {
@@ -1487,13 +1484,13 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
             ListTile(
               leading: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border, 
-                color: isLiked ? const Color(0xFFB91C1C) : Colors.white
+                color: isLiked ? const Color(0xFF6366F1) : Colors.white
               ),
               title: Text(
                 isLiked ? 'Unlike' : 'Like', 
                 style: const TextStyle(
                   color: Colors.white,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
               ),
               onTap: () {
@@ -1515,7 +1512,7 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
         SnackBar(
           content: Text(
             isLiked ? 'Added to liked songs' : 'Removed from liked songs',
-            style: const TextStyle(fontFamily: 'monospace'),
+            style: const TextStyle(fontFamily: 'CascadiaCode'),
           ),
           backgroundColor: const Color(0xFF1C1C1E),
           duration: const Duration(seconds: 2),
@@ -1524,5 +1521,202 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
         ),
       );
     }
+  }
+}
+
+// Playlist thumbnail widget that fetches and displays the playlist thumbnail
+class _PlaylistThumbnail extends StatefulWidget {
+  final UserPlaylist playlist;
+
+  const _PlaylistThumbnail({required this.playlist});
+
+  @override
+  State<_PlaylistThumbnail> createState() => _PlaylistThumbnailState();
+}
+
+class _PlaylistThumbnailState extends State<_PlaylistThumbnail> {
+  String? _thumbnailUrl;
+  bool _isLoading = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  Future<void> _loadThumbnail() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      // Try to get the first song's thumbnail from the playlist
+      final songs = await UserPlaylistService.getPlaylistSongs(widget.playlist.playlistId);
+      if (songs.isNotEmpty && songs.first.thumbnail.isNotEmpty) {
+        setState(() {
+          _thumbnailUrl = songs.first.thumbnail;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: _buildThumbnailContent(),
+      ),
+    );
+  }
+
+  Widget _buildThumbnailContent() {
+    if (_isLoading) {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryLinearGradient,
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.textPrimary),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_hasError || _thumbnailUrl == null || _thumbnailUrl!.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryLinearGradient,
+        ),
+        child: const Icon(
+          Icons.playlist_play_rounded,
+          color: AppColors.textPrimary,
+          size: 32,
+        ),
+      );
+    }
+
+    return Image.network(
+      _thumbnailUrl!,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryLinearGradient,
+          ),
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.textPrimary),
+              ),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryLinearGradient,
+          ),
+          child: const Icon(
+            Icons.playlist_play_rounded,
+            color: AppColors.textPrimary,
+            size: 32,
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Hoverable icon button for desktop interactions
+class _HoverableIconButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  const _HoverableIconButton({
+    required this.onPressed,
+    required this.icon,
+  });
+
+  @override
+  State<_HoverableIconButton> createState() => _HoverableIconButtonState();
+}
+
+class _HoverableIconButtonState extends State<_HoverableIconButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+          setState(() {
+            _isHovered = true;
+          });
+        }
+      },
+      onExit: (_) {
+        if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+          setState(() {
+            _isHovered = false;
+          });
+        }
+      },
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isHovered 
+                ? AppColors.cardBackground.withOpacity(0.8)
+                : AppColors.cardBackground.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            widget.icon,
+            color: AppColors.textMuted,
+            size: 20,
+          ),
+        ),
+      ),
+    );
   }
 }

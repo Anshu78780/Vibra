@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/update_manager.dart';
+import '../utils/app_colors.dart';
 
 class UpdateDialog extends StatelessWidget {
   final UpdateInfo updateInfo;
@@ -18,11 +19,11 @@ class UpdateDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(
-          color: Color(0xFF333333),
+          color: AppColors.cardBackground,
           width: 1,
         ),
       ),
@@ -31,7 +32,7 @@ class UpdateDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFB91C1C),
+              color: AppColors.primary,
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
@@ -51,15 +52,15 @@ class UpdateDialog extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+                    fontFamily: 'CascadiaCode',
                   ),
                 ),
                 Text(
                   'v${updateInfo.latestVersion}',
                   style: const TextStyle(
-                    color: Color(0xFFB91C1C),
+                    color: Color(0xFF6366F1),
                     fontSize: 14,
-                    fontFamily: 'monospace',
+                    fontFamily: 'CascadiaCode',
                   ),
                 ),
               ],
@@ -94,7 +95,7 @@ class UpdateDialog extends StatelessWidget {
                   style: const TextStyle(
                     color: Color(0xFF999999),
                     fontSize: 12,
-                    fontFamily: 'monospace',
+                    fontFamily: 'CascadiaCode',
                   ),
                 ),
                 const Spacer(),
@@ -107,9 +108,9 @@ class UpdateDialog extends StatelessWidget {
                 Text(
                   'Latest: v${updateInfo.latestVersion}',
                   style: const TextStyle(
-                    color: Color(0xFFB91C1C),
+                    color: Color(0xFF6366F1),
                     fontSize: 12,
-                    fontFamily: 'monospace',
+                    fontFamily: 'CascadiaCode',
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -123,7 +124,7 @@ class UpdateDialog extends StatelessWidget {
               color: Colors.white,
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
           const SizedBox(height: 8),
@@ -145,7 +146,7 @@ class UpdateDialog extends StatelessWidget {
               style: const TextStyle(
                 color: Color(0xFFCCCCCC),
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
                 height: 1.4,
               ),
               maxLines: 6,
@@ -177,7 +178,7 @@ class UpdateDialog extends StatelessWidget {
                     style: const TextStyle(
                       color: Color(0xFF4A90E2),
                       fontSize: 11,
-                      fontFamily: 'monospace',
+                      fontFamily: 'CascadiaCode',
                     ),
                   ),
                 ),
@@ -196,7 +197,7 @@ class UpdateDialog extends StatelessWidget {
             'Skip Version',
             style: TextStyle(
               color: Color(0xFF666666),
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ),
@@ -209,7 +210,7 @@ class UpdateDialog extends StatelessWidget {
             'Later',
             style: TextStyle(
               color: Color(0xFF999999),
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ),
@@ -219,7 +220,7 @@ class UpdateDialog extends StatelessWidget {
             onUpdate?.call();
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFB91C1C),
+            backgroundColor: const Color(0xFF6366F1),
             foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -230,7 +231,7 @@ class UpdateDialog extends StatelessWidget {
           child: const Text(
             'Update Now',
             style: TextStyle(
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
               fontWeight: FontWeight.bold,
             ),
           ),

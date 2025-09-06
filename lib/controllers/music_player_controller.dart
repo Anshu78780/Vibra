@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_service/audio_service.dart';
+import 'dart:io' show Platform;
 import '../models/music_model.dart';
 import '../services/audio_service.dart' as yt_audio_service;
 import '../services/background_audio_handler.dart';
 import '../services/recommendation_service.dart';
 import '../services/preloading_service.dart';
 import '../services/download_service.dart';
+import '../services/windows_media_service.dart';
+import '../services/youtube_fallback_service.dart';
 
 class MusicPlayerController extends ChangeNotifier {
   static final MusicPlayerController _instance = MusicPlayerController._internal();
@@ -16,6 +19,7 @@ class MusicPlayerController extends ChangeNotifier {
   _setupAudioPlayer();
   // Background audio handler is now lazily initialized via _ensureAudioHandler()
     _initDownloadService();
+    _initWindowsMediaService();
     
     // Make sure we get onAudioComplete callbacks
     _audioPlayer.playbackEventStream.listen((event) {
@@ -86,17 +90,40 @@ class MusicPlayerController extends ChangeNotifier {
     _isPlaying = false;
     _position = Duration.zero;
     
+    // Debug queue status before deciding what to do
+    debugQueueStatus();
+    
     // Auto-advance to next track if available
-    Future.delayed(Duration.zero, () {
+    Future.delayed(Duration.zero, () async {
       if (hasNext) {
         final nextTrack = _queue[_currentIndex + 1];
-        print('✅✅✅ Auto-playing next track: ${nextTrack.title}');
+        print('✅✅✅ Auto-playing next track: ${nextTrack.title} (ID: ${nextTrack.id})');
+        print('🔍 Current track was: ${_currentTrack?.title ?? 'Unknown'} (ID: ${_currentTrack?.id ?? 'Unknown'})');
         _onAutoAdvance?.call('Playing next: ${nextTrack.title}');
         _playNext().then((_) {
           // Reset the flag after playback starts
           _isHandlingCompletion = false;
         });
       } else {
+        // Check if we're waiting for recommendations to load
+        final currentVideoId = _currentTrack != null ? _extractVideoId(_currentTrack!.webpageUrl) : null;
+        if (currentVideoId != null && _lastRecommendationTrackId != currentVideoId && _queue.length == 1) {
+          print('🔄 Waiting for recommendations to load before ending queue...');
+          // Wait a bit for recommendations to load
+          await Future.delayed(const Duration(seconds: 2));
+          
+          // Check again if we have more tracks now
+          if (hasNext) {
+            print('✅ Recommendations loaded, continuing to next track');
+            final nextTrack = _queue[_currentIndex + 1];
+            _onAutoAdvance?.call('Playing next: ${nextTrack.title}');
+            _playNext().then((_) {
+              _isHandlingCompletion = false;
+            });
+            return;
+          }
+        }
+        
         print('Queue completed, no more tracks');
         _isHandlingCompletion = false;
         notifyListeners();
@@ -145,6 +172,15 @@ class MusicPlayerController extends ChangeNotifier {
     // Listen to position changes
     _audioPlayer.positionStream.listen((position) {
       _position = position;
+      
+      // Update Windows media controls periodically (every 5 seconds to avoid spam)
+      if (Platform.isWindows && _currentTrack != null && _position.inSeconds % 5 == 0) {
+        WindowsMediaService.instance.updatePlaybackStatus(
+          isPlaying: _isPlaying,
+          positionMs: _position.inMilliseconds,
+          durationMs: _duration.inMilliseconds,
+        );
+      }
       
       // Check if we should preload the next track (30 seconds before end)
       if (_duration.inMilliseconds > 0 && hasNext) {
@@ -222,6 +258,10 @@ class MusicPlayerController extends ChangeNotifier {
       print('✅ AudioHandler initialized');
     } catch (e) {
       print('❌ Failed to init AudioHandler: $e');
+      // On Windows, continue without audio service - the player will still work
+      if (Platform.isWindows) {
+        print('ℹ️ Continuing without background audio service on Windows');
+      }
     }
   }
 
@@ -231,6 +271,61 @@ class MusicPlayerController extends ChangeNotifier {
       print('✅ DownloadService initialized');
     } catch (e) {
       print('❌ Failed to init DownloadService: $e');
+    }
+  }
+
+  Future<void> _initWindowsMediaService() async {
+    if (!Platform.isWindows) return;
+    
+    try {
+      await WindowsMediaService.instance.initialize();
+      
+      // Set up Windows media control button handlers
+      await WindowsMediaService.instance.setButtonPressHandler(
+        onPlay: () => resume(),
+        onPause: () => pause(),
+        onNext: () => playNext(),
+        onPrevious: () => playPrevious(),
+        onStop: () => stop(),
+        onSeek: (positionMs) => seek(Duration(milliseconds: positionMs)),
+      );
+      
+      print('✅ Windows Media Service initialized');
+    } catch (e) {
+      print('❌ Failed to init Windows Media Service: $e');
+    }
+  }
+
+  // Windows-specific method to refresh media controls
+  Future<void> _refreshWindowsMediaControls() async {
+    if (!Platform.isWindows || _currentTrack == null) {
+      return;
+    }
+    
+    try {
+      // Update regular audio service
+      if (_audioHandler != null) {
+        final item = _toMediaItem(_currentTrack!, duration: _audioPlayer.duration);
+        await _audioHandler!.updateMediaItem(item);
+      }
+      
+      // Update Windows SystemMediaTransportControls
+      await WindowsMediaService.instance.updateMetadata(
+        title: _currentTrack!.title,
+        artist: _currentTrack!.artist,
+        album: _currentTrack!.album,
+        thumbnail: _currentTrack!.thumbnail,
+      );
+      
+      await WindowsMediaService.instance.updatePlaybackStatus(
+        isPlaying: _isPlaying,
+        positionMs: _position.inMilliseconds,
+        durationMs: _duration.inMilliseconds,
+      );
+      
+      print('🪟 Refreshed Windows media controls for: ${_currentTrack!.title}');
+    } catch (e) {
+      print('❌ Failed to refresh Windows media controls: $e');
     }
   }
 
@@ -317,10 +412,46 @@ class MusicPlayerController extends ChangeNotifier {
   final item = _toMediaItem(track, duration: _audioPlayer.duration);
   await _audioHandler?.updateMediaItem(item);
       
+  // Additional Windows media control refresh
+  if (Platform.isWindows) {
+    await _refreshWindowsMediaControls();
+  }
+      
     } catch (e) {
       _setLoading(false, '');
-      _errorMessage = e.toString();
       print('❌ Error playing track: $e');
+      
+      // Check if this is a VideoUnplayableException and try fallback
+      if (e.toString().contains('VideoUnplayableException') || 
+          e.toString().contains('This video is not available') ||
+          e.toString().contains('Streams are not available for this video')) {
+        
+        print('🔄 Video is unplayable, attempting fallback search...');
+        _setLoading(true, 'Searching for alternative version...');
+        
+        try {
+          final alternativeTrack = await YouTubeFallbackService.findAlternativeTrack(track);
+          
+          if (alternativeTrack != null) {
+            print('✅ Found alternative track: ${alternativeTrack.title} by ${alternativeTrack.artist}');
+            print('🔗 Alternative URL: ${alternativeTrack.webpageUrl}');
+            _setLoading(true, 'Loading alternative version with recommendations...');
+            
+            // Use playTrackWithRecommendations to ensure continuous playback
+            await playTrackWithRecommendations(alternativeTrack);
+            return; // Exit successfully
+          } else {
+            print('❌ No alternative track found');
+            _errorMessage = 'This video is not available and no alternative version could be found. The video may be restricted in your region or has been removed.';
+          }
+        } catch (fallbackError) {
+          print('❌ Fallback search failed: $fallbackError');
+          _errorMessage = 'This video is not available and the search for alternatives failed: $fallbackError';
+        }
+      } else {
+        _errorMessage = e.toString();
+      }
+      
       notifyListeners();
     }
   }
@@ -401,9 +532,30 @@ class MusicPlayerController extends ChangeNotifier {
       print('📦 Received ${recommendations.length} recommendations from API');
       
       if (recommendations.isNotEmpty) {
-        // Update the queue with recommendations (keep current track at index 0)
+        // Filter out the current track and duplicates from recommendations
+        final filteredRecommendations = recommendations.where((rec) {
+          // Don't add the current track again
+          if (_areTracksEqual(rec, track)) {
+            print('🚫 Filtering out current track: ${rec.title} (ID: ${rec.id})');
+            return false;
+          }
+          
+          // Don't add tracks that are already in the queue
+          final alreadyInQueue = _queue.any((existing) => _areTracksEqual(existing, rec));
+          if (alreadyInQueue) {
+            print('🚫 Filtering out duplicate track: ${rec.title} (ID: ${rec.id})');
+            return false;
+          }
+          
+          print('✅ Adding unique track: ${rec.title} (ID: ${rec.id})');
+          return true;
+        }).toList();
+        
+        print('📦 Filtered ${recommendations.length} recommendations down to ${filteredRecommendations.length} unique tracks');
+        
+        // Update the queue with filtered recommendations (keep current track at index 0)
         final oldQueueLength = _queue.length;
-        _queue = [track, ...recommendations];
+        _queue = [track, ...filteredRecommendations];
         _lastRecommendationTrackId = videoId; // Mark this track as having recommendations loaded
         print('✅ Updated queue from $oldQueueLength to ${_queue.length} tracks');
         print('📋 First 3 queue tracks:');
@@ -420,37 +572,67 @@ class MusicPlayerController extends ChangeNotifier {
           print('❌ Failed to update system UI queue: $e');
         }
         
-        // Preload the first recommendation
-        if (recommendations.isNotEmpty) {
-          PreloadingService.preloadAudioUrl(recommendations.first);
-          print('🔄 Started preloading: ${recommendations.first.title}');
+        // Preload the first filtered recommendation if available
+        if (filteredRecommendations.isNotEmpty) {
+          PreloadingService.preloadAudioUrl(filteredRecommendations.first);
+          print('🔄 Started preloading: ${filteredRecommendations.first.title}');
         }
         
         notifyListeners();
         print('✅ Queue update complete and listeners notified');
       } else {
         print('⚠️ No recommendations found for: ${track.title}');
+        // Mark as attempted even if no recommendations found to avoid retrying immediately
+        _lastRecommendationTrackId = videoId;
       }
     } catch (e) {
       print('❌ Error loading recommendations: $e');
       print('❌ Stack trace: ${StackTrace.current}');
+      // Mark as attempted even if error occurred to avoid infinite retries
+      final videoId = _extractVideoId(track.webpageUrl);
+      if (videoId != null) {
+        _lastRecommendationTrackId = videoId;
+      }
     }
   }
 
   Future<void> _playNext() async {
     if (hasNext) {
       print('Playing next track at index: ${_currentIndex + 1}');
+      final originalIndex = _currentIndex;
       _currentIndex++;
       final nextTrack = _queue[_currentIndex];
-      _currentTrack = nextTrack;
+      
+      // Safety check: if the next track is the same as current track, skip it
+      if (_currentTrack != null && _areTracksEqual(nextTrack, _currentTrack!)) {
+        print('🚫 Next track is identical to current track, skipping...');
+        
+        // Try to find a different track in the queue
+        while (hasNext && _areTracksEqual(_queue[_currentIndex], _currentTrack!)) {
+          _currentIndex++;
+          if (_currentIndex >= _queue.length) {
+            break;
+          }
+        }
+        
+        // If we've reached the end without finding a different track
+        if (_currentIndex >= _queue.length) {
+          print('🛑 No more unique tracks in queue');
+          _currentIndex = originalIndex; // Reset to original position
+          return;
+        }
+      }
+      
+      final finalNextTrack = _queue[_currentIndex];
+      _currentTrack = finalNextTrack;
       
       // Make sure we stop the current playback before starting a new one
       await _audioPlayer.stop();
       
   // Start playing the next track
-      await playTrack(nextTrack);
+      await playTrack(finalNextTrack);
       
-      print('Successfully started playing next track: ${nextTrack.title}');
+      print('Successfully started playing next track: ${finalNextTrack.title}');
     } else {
       print('No more tracks in queue');
     }
@@ -527,6 +709,10 @@ class MusicPlayerController extends ChangeNotifier {
     if (!canControl) return;
     try {
       await _audioPlayer.pause();
+      // Refresh Windows media controls on pause
+      if (Platform.isWindows) {
+        await _refreshWindowsMediaControls();
+      }
     } catch (e) {
       print('Error pausing: $e');
       _errorMessage = e.toString();
@@ -538,6 +724,10 @@ class MusicPlayerController extends ChangeNotifier {
     if (!canControl) return;
     try {
       await _audioPlayer.play();
+      // Refresh Windows media controls on resume
+      if (Platform.isWindows) {
+        await _refreshWindowsMediaControls();
+      }
     } catch (e) {
       print('Error resuming: $e');
       _errorMessage = e.toString();
@@ -592,6 +782,31 @@ class MusicPlayerController extends ChangeNotifier {
     }
   }
 
+  /// Manually search for and play an alternative version of the current track
+  Future<void> searchAlternativeTrack() async {
+    if (_currentTrack == null) return;
+    
+    _setLoading(true, 'Searching for alternative version...');
+    
+    try {
+      final alternativeTrack = await YouTubeFallbackService.findAlternativeTrack(_currentTrack!);
+      
+      if (alternativeTrack != null) {
+        print('✅ Manual alternative search found: ${alternativeTrack.title} by ${alternativeTrack.artist}');
+        _setLoading(true, 'Loading alternative with recommendations...');
+        await playTrackWithRecommendations(alternativeTrack);
+      } else {
+        _setLoading(false, '');
+        _errorMessage = 'No alternative version found for this track.';
+        notifyListeners();
+      }
+    } catch (e) {
+      _setLoading(false, '');
+      _errorMessage = 'Failed to search for alternative: $e';
+      notifyListeners();
+    }
+  }
+
   String? _extractVideoId(String url) {
     // Extract video ID from various YouTube URL formats
     final regExp = RegExp(
@@ -610,11 +825,44 @@ class MusicPlayerController extends ChangeNotifier {
     return _formatDuration(_duration);
   }
 
+  /// Debug method to check queue status
+  void debugQueueStatus() {
+    print('🔍 DEBUG QUEUE STATUS:');
+    print('  Current Index: $_currentIndex');
+    print('  Queue Length: ${_queue.length}');
+    print('  Has Next: $hasNext');
+    print('  Last Recommendation Track ID: $_lastRecommendationTrackId');
+    print('  Current Track ID: ${_currentTrack != null ? _extractVideoId(_currentTrack!.webpageUrl) : 'None'}');
+    
+    for (int i = 0; i < _queue.length && i < 5; i++) {
+      final indicator = i == _currentIndex ? '→ ' : '  ';
+      print('  $indicator$i: ${_queue[i].title} by ${_queue[i].artist}');
+    }
+    if (_queue.length > 5) {
+      print('  ... and ${_queue.length - 5} more tracks');
+    }
+  }
+
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  /// Check if two tracks are the same (by ID or URL)
+  bool _areTracksEqual(MusicTrack track1, MusicTrack track2) {
+    // Compare by ID first (most reliable)
+    if (track1.id.isNotEmpty && track2.id.isNotEmpty && track1.id == track2.id) {
+      return true;
+    }
+    
+    // Fallback to webpage URL comparison
+    if (track1.webpageUrl.isNotEmpty && track2.webpageUrl.isNotEmpty && track1.webpageUrl == track2.webpageUrl) {
+      return true;
+    }
+    
+    return false;
   }
 
   MediaItem _toMediaItem(MusicTrack t, {Duration? duration}) {
@@ -660,8 +908,12 @@ class MusicPlayerController extends ChangeNotifier {
       DownloadService().downloadProgressStream;
 
   @override
+  @override
   void dispose() {
     _audioPlayer.dispose();
+    if (Platform.isWindows) {
+      WindowsMediaService.instance.dispose();
+    }
     super.dispose();
   }
 }

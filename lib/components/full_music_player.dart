@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import '../controllers/music_player_controller.dart';
 import '../components/universal_loader.dart';
 import '../services/liked_songs_service.dart';
@@ -14,6 +15,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   final MusicPlayerController _controller = MusicPlayerController();
   bool _isLiked = false;
   bool _isDownloaded = false;
+  bool _isDownloading = false;
   bool _showQueue = false;
   late AnimationController _queueAnimationController;
   late Animation<double> _queueSlideAnimation;
@@ -76,7 +78,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         SnackBar(
           content: Text(
             isLiked ? 'Added to liked songs' : 'Removed from liked songs',
-            style: const TextStyle(fontFamily: 'monospace'),
+            style: const TextStyle(fontFamily: 'CascadiaCode'),
           ),
           backgroundColor: const Color(0xFF1C1C1E),
           duration: const Duration(seconds: 2),
@@ -99,7 +101,30 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   }
 
   void _downloadTrack() async {
-    if (_controller.currentTrack != null) {
+    // Check if running on Windows
+    if (Platform.isWindows) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Download feature coming soon on Windows. Use Android to download tracks.',
+              style: TextStyle(fontFamily: 'CascadiaCode'),
+            ),
+            backgroundColor: Color(0xFF1C1C1E),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_controller.currentTrack != null && !_isDownloading) {
+      // Set immediate loading state
+      setState(() {
+        _isDownloading = true;
+      });
+
       try {
         await _controller.downloadCurrentTrack();
         
@@ -108,23 +133,37 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             const SnackBar(
               content: Text(
                 'Download started - check notifications for progress',
-                style: TextStyle(fontFamily: 'monospace'),
+                style: TextStyle(fontFamily: 'CascadiaCode'),
               ),
               backgroundColor: Color(0xFF1C1C1E),
               duration: Duration(seconds: 3),
               behavior: SnackBarBehavior.floating,
             ),
           );
+          
+          // Reset loading state after a short delay
+          // The actual download progress will be handled by the download service
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              setState(() {
+                _isDownloading = false;
+              });
+            }
+          });
         }
       } catch (e) {
         if (mounted) {
+          setState(() {
+            _isDownloading = false;
+          });
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 'Download failed: $e',
-                style: const TextStyle(fontFamily: 'monospace'),
+                style: const TextStyle(fontFamily: 'CascadiaCode'),
               ),
-              backgroundColor: const Color(0xFFB91C1C),
+              backgroundColor: const Color(0xFF6366F1),
               duration: const Duration(seconds: 3),
               behavior: SnackBarBehavior.floating,
             ),
@@ -167,7 +206,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
               'Now Playing',
               style: TextStyle(
                 color: Colors.white,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
                 fontSize: 16,
               ),
             ),
@@ -176,7 +215,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 '${_controller.currentIndex + 1} of ${_controller.queue.length}',
                 style: const TextStyle(
                   color: Colors.white54,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                   fontSize: 12,
                 ),
               ),
@@ -223,7 +262,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             style: TextStyle(
               color: Color(0xFF999999),
               fontSize: 16,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
             ),
           ),
         ],
@@ -379,7 +418,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFB91C1C).withOpacity(0.3),
+            color: const Color(0xFF6366F1).withOpacity(0.3),
             blurRadius: 40,
             spreadRadius: 5,
             offset: const Offset(0, 15),
@@ -463,7 +502,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
               color: Colors.white,
               fontSize: 26,
               fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
+              fontFamily: 'CascadiaCode',
               letterSpacing: 0.5,
               height: 1.2,
             ),
@@ -479,7 +518,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             color: Colors.white.withOpacity(0.8),
             fontSize: 18,
             fontWeight: FontWeight.w500,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
             letterSpacing: 0.3,
           ),
           textAlign: TextAlign.center,
@@ -498,7 +537,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFB91C1C).withOpacity(0.3),
+            color: const Color(0xFF6366F1).withOpacity(0.3),
             blurRadius: 20,
             spreadRadius: 3,
             offset: const Offset(0, 8),
@@ -566,7 +605,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.w700,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
             letterSpacing: 0.5,
             height: 1.2,
           ),
@@ -581,7 +620,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             color: Colors.white.withOpacity(0.8),
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            fontFamily: 'monospace',
+            fontFamily: 'CascadiaCode',
             letterSpacing: 0.3,
           ),
           textAlign: TextAlign.center,
@@ -606,7 +645,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
               style: const TextStyle(
                 color: Color(0xFF999999),
                 fontSize: 11,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -641,14 +680,14 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                   end: Alignment.bottomRight,
                   colors: [
                     Color(0xFFDC2626),
-                    Color(0xFFB91C1C),
+                    Color(0xFF6366F1),
                     Color(0xFF991B1B),
                   ],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFB91C1C).withOpacity(0.4),
+                    color: const Color(0xFF6366F1).withOpacity(0.4),
                     blurRadius: 12,
                     spreadRadius: 2,
                     offset: const Offset(0, 4),
@@ -729,14 +768,27 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         _buildCompactActionButton(
           icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
           label: _isLiked ? 'Liked' : 'Like',
-          color: _isLiked ? const Color(0xFFB91C1C) : Colors.white.withOpacity(0.8),
+          color: _isLiked ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.8),
           onTap: _toggleLike,
         ),
         _buildCompactActionButton(
-          icon: _isDownloaded ? Icons.download_done_rounded : Icons.download_rounded,
-          label: _isDownloaded ? 'Downloaded' : 'Download',
-          color: _isDownloaded ? Colors.green : Colors.white.withOpacity(0.8),
-          onTap: _isDownloaded ? null : _downloadTrack,
+          icon: _isDownloading 
+              ? Icons.downloading // Use a different icon for loading state
+              : (Platform.isWindows 
+                  ? Icons.download_outlined 
+                  : (_isDownloaded ? Icons.download_done_rounded : Icons.download_rounded)),
+          label: _isDownloading 
+              ? 'Starting...'
+              : (Platform.isWindows 
+                  ? 'Coming Soon' 
+                  : (_isDownloaded ? 'Downloaded' : 'Download')),
+          color: _isDownloading
+              ? const Color(0xFF6366F1)
+              : (Platform.isWindows 
+                  ? Colors.grey.withOpacity(0.6) 
+                  : (_isDownloaded ? Colors.green : Colors.white.withOpacity(0.8))),
+          onTap: _isDownloading ? null : _downloadTrack,
+          isLoading: _isDownloading,
         ),
       ],
     );
@@ -747,6 +799,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
     required String label,
     required Color color,
     required VoidCallback? onTap,
+    bool isLoading = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -763,11 +816,21 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: 16,
-            ),
+            if (isLoading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                ),
+              )
+            else
+              Icon(
+                icon,
+                color: color,
+                size: 16,
+              ),
             const SizedBox(width: 6),
             Text(
               label,
@@ -775,7 +838,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 color: color,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ],
@@ -818,7 +881,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace',
+                          fontFamily: 'CascadiaCode',
                         ),
                       ),
                       Text(
@@ -826,7 +889,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.7),
                           fontSize: 14,
-                          fontFamily: 'monospace',
+                          fontFamily: 'CascadiaCode',
                         ),
                       ),
                     ],
@@ -857,11 +920,11 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: isCurrentTrack 
-                        ? const Color(0xFFB91C1C).withOpacity(0.2)
+                        ? const Color(0xFF6366F1).withOpacity(0.2)
                         : const Color(0xFF2A2A2E).withOpacity(0.5),
                     borderRadius: BorderRadius.circular(8),
                     border: isCurrentTrack 
-                        ? Border.all(color: const Color(0xFFB91C1C), width: 1)
+                        ? Border.all(color: const Color(0xFF6366F1), width: 1)
                         : null,
                   ),
                   child: ListTile(
@@ -903,10 +966,10 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                     title: Text(
                       track.title,
                       style: TextStyle(
-                        color: isCurrentTrack ? const Color(0xFFB91C1C) : Colors.white,
+                        color: isCurrentTrack ? const Color(0xFF6366F1) : Colors.white,
                         fontSize: 14,
                         fontWeight: isCurrentTrack ? FontWeight.w600 : FontWeight.w500,
-                        fontFamily: 'monospace',
+                        fontFamily: 'CascadiaCode',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -915,10 +978,10 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                       track.artist,
                       style: TextStyle(
                         color: isCurrentTrack 
-                            ? const Color(0xFFB91C1C).withOpacity(0.8)
+                            ? const Color(0xFF6366F1).withOpacity(0.8)
                             : Colors.white.withOpacity(0.7),
                         fontSize: 12,
-                        fontFamily: 'monospace',
+                        fontFamily: 'CascadiaCode',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -928,7 +991,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                             _controller.isPlaying 
                                 ? Icons.volume_up_rounded 
                                 : Icons.pause_rounded,
-                            color: const Color(0xFFB91C1C),
+                            color: const Color(0xFF6366F1),
                             size: 16,
                           )
                         : null,
@@ -952,9 +1015,9 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
       children: [
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: _controller.canControl ? const Color(0xFFB91C1C) : const Color(0xFF666666),
+            activeTrackColor: _controller.canControl ? const Color(0xFF6366F1) : const Color(0xFF666666),
             inactiveTrackColor: const Color(0xFF333333),
-            thumbColor: _controller.canControl ? const Color(0xFFB91C1C) : const Color(0xFF666666),
+            thumbColor: _controller.canControl ? const Color(0xFF6366F1) : const Color(0xFF666666),
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
             trackHeight: 4,
@@ -982,7 +1045,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 style: const TextStyle(
                   color: Color(0xFF999999),
                   fontSize: 14,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
               ),
               Text(
@@ -990,7 +1053,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 style: const TextStyle(
                   color: Color(0xFF999999),
                   fontSize: 14,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
               ),
             ],
@@ -1023,14 +1086,14 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 end: Alignment.bottomRight,
                 colors: [
                   Color(0xFFDC2626),
-                  Color(0xFFB91C1C),
+                  Color(0xFF6366F1),
                   Color(0xFF991B1B),
                 ],
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFB91C1C).withOpacity(0.4),
+                  color: const Color(0xFF6366F1).withOpacity(0.4),
                   blurRadius: 20,
                   spreadRadius: 2,
                   offset: const Offset(0, 8),
@@ -1102,14 +1165,27 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         _buildActionButton(
           icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
           label: _isLiked ? 'Liked' : 'Like',
-          color: _isLiked ? const Color(0xFFB91C1C) : Colors.white.withOpacity(0.8),
+          color: _isLiked ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.8),
           onTap: _toggleLike,
         ),
         _buildActionButton(
-          icon: _isDownloaded ? Icons.download_done_rounded : Icons.download_rounded,
-          label: _isDownloaded ? 'Downloaded' : 'Download',
-          color: _isDownloaded ? Colors.green : Colors.white.withOpacity(0.8),
-          onTap: _isDownloaded ? null : _downloadTrack,
+          icon: _isDownloading 
+              ? Icons.downloading // Use a different icon for loading state
+              : (Platform.isWindows 
+                  ? Icons.download_outlined 
+                  : (_isDownloaded ? Icons.download_done_rounded : Icons.download_rounded)),
+          label: _isDownloading 
+              ? 'Starting...'
+              : (Platform.isWindows 
+                  ? 'Coming Soon' 
+                  : (_isDownloaded ? 'Downloaded' : 'Download')),
+          color: _isDownloading
+              ? const Color(0xFF6366F1)
+              : (Platform.isWindows 
+                  ? Colors.grey.withOpacity(0.6) 
+                  : (_isDownloaded ? Colors.green : Colors.white.withOpacity(0.8))),
+          onTap: _isDownloading ? null : _downloadTrack,
+          isLoading: _isDownloading,
         ),
         _buildActionButton(
           icon: Icons.queue_music_rounded,
@@ -1126,6 +1202,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
     required String label,
     required Color color,
     required VoidCallback? onTap,
+    bool isLoading = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -1134,11 +1211,21 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
+            if (isLoading)
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                ),
+              )
+            else
+              Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
             const SizedBox(height: 4),
             Text(
               label,
@@ -1146,7 +1233,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 color: color,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
           ],
@@ -1202,7 +1289,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
+                                fontFamily: 'CascadiaCode',
                               ),
                             ),
                             Text(
@@ -1210,7 +1297,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.7),
                                 fontSize: 14,
-                                fontFamily: 'monospace',
+                                fontFamily: 'CascadiaCode',
                               ),
                             ),
                           ],
@@ -1241,11 +1328,11 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
                           color: isCurrentTrack 
-                              ? const Color(0xFFB91C1C).withOpacity(0.2)
+                              ? const Color(0xFF6366F1).withOpacity(0.2)
                               : const Color(0xFF2A2A2E).withOpacity(0.5),
                           borderRadius: BorderRadius.circular(12),
                           border: isCurrentTrack 
-                              ? Border.all(color: const Color(0xFFB91C1C), width: 1)
+                              ? Border.all(color: const Color(0xFF6366F1), width: 1)
                               : null,
                         ),
                         child: ListTile(
@@ -1293,10 +1380,10 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                           title: Text(
                             track.title,
                             style: TextStyle(
-                              color: isCurrentTrack ? const Color(0xFFB91C1C) : Colors.white,
+                              color: isCurrentTrack ? const Color(0xFF6366F1) : Colors.white,
                               fontSize: 16,
                               fontWeight: isCurrentTrack ? FontWeight.w600 : FontWeight.w500,
-                              fontFamily: 'monospace',
+                              fontFamily: 'CascadiaCode',
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1305,10 +1392,10 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                             track.artist,
                             style: TextStyle(
                               color: isCurrentTrack 
-                                  ? const Color(0xFFB91C1C).withOpacity(0.8)
+                                  ? const Color(0xFF6366F1).withOpacity(0.8)
                                   : Colors.white.withOpacity(0.7),
                               fontSize: 14,
-                              fontFamily: 'monospace',
+                              fontFamily: 'CascadiaCode',
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1320,7 +1407,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFB91C1C),
+                                    color: const Color(0xFF6366F1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
@@ -1340,7 +1427,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                                           color: Colors.white,
                                           fontSize: 10,
                                           fontWeight: FontWeight.w600,
-                                          fontFamily: 'monospace',
+                                          fontFamily: 'CascadiaCode',
                                         ),
                                       ),
                                     ],
@@ -1396,7 +1483,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
             ),
             const SizedBox(height: 8),
@@ -1407,19 +1494,74 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => _controller.retry(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB91C1C),
-                foregroundColor: Colors.white,
+            
+            // Check if this is a video unavailable error to show alternative search option
+            if (_controller.errorMessage!.contains('This video is not available') ||
+                _controller.errorMessage!.contains('VideoUnplayableException') ||
+                _controller.errorMessage!.contains('Streams are not available'))
+              Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _controller.searchAlternativeTrack(),
+                    icon: const Icon(Icons.search, color: Colors.white),
+                    label: const Text(
+                      'Find Alternative',
+                      style: TextStyle(
+                        fontFamily: 'CascadiaCode',
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1976D2),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => _controller.retry(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text(
+                      'Retry Original',
+                      style: TextStyle(fontFamily: 'CascadiaCode'),
+                    ),
+                  ),
+                ],
+              )
+            else
+              ElevatedButton(
+                onPressed: () => _controller.retry(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(fontFamily: 'CascadiaCode'),
+                ),
               ),
-              child: const Text('Retry'),
+            
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => _controller.clearError(),
+              child: const Text(
+                'Dismiss',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
             ),
           ],
         ),
@@ -1461,7 +1603,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 'View Queue',
                 style: TextStyle(
                   color: Colors.white,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1469,7 +1611,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 '${_controller.queue.length} songs',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                   fontSize: 12,
                 ),
               ),
@@ -1491,7 +1633,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 'Stop Playing',
                 style: TextStyle(
                   color: Colors.white,
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1499,7 +1641,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 'Stop and clear queue',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
-                  fontFamily: 'monospace',
+                  fontFamily: 'CascadiaCode',
                   fontSize: 12,
                 ),
               ),

@@ -26,7 +26,7 @@ class UniversalLoader extends StatelessWidget {
             child: CircularProgressIndicator(
               strokeWidth: 3,
               valueColor: AlwaysStoppedAnimation<Color>(
-                color ?? const Color(0xFFB91C1C),
+                color ?? const Color(0xFF6366F1),
               ),
             ),
           ),
@@ -37,7 +37,7 @@ class UniversalLoader extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
-                fontFamily: 'monospace',
+                fontFamily: 'CascadiaCode',
               ),
               textAlign: TextAlign.center,
             ),
@@ -91,7 +91,7 @@ class LoadingButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFB91C1C),
+        backgroundColor: const Color(0xFF6366F1),
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         shape: RoundedRectangleBorder(
@@ -113,13 +113,13 @@ class LoadingButton extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   loadingText,
-                  style: const TextStyle(fontFamily: 'monospace'),
+                  style: const TextStyle(fontFamily: 'CascadiaCode'),
                 ),
               ],
             )
           : Text(
               text,
-              style: const TextStyle(fontFamily: 'monospace'),
+              style: const TextStyle(fontFamily: 'CascadiaCode'),
             ),
     );
   }

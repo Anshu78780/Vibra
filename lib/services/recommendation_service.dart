@@ -7,7 +7,7 @@ class RecommendationService {
   static const String _baseUrl = 'https://song-9bg4.onrender.com';
   
   /// Get song recommendations based on a track ID
-  static Future<List<MusicTrack>> getRecommendations(String trackId, {int limit = 20}) async {
+  static Future<List<MusicTrack>> getRecommendations(String trackId, {int limit = 50}) async {
     if (trackId.trim().isEmpty) return [];
     
     try {
@@ -56,11 +56,21 @@ class RecommendationService {
               .cast<MusicTrack>()
               .toList();
           
-          debugPrint('✅ Successfully parsed ${recommendations.length} recommendations');
-          for (int i = 0; i < recommendations.length && i < 3; i++) {
-            debugPrint('  ${i + 1}. ${recommendations[i].title} by ${recommendations[i].artist}');
+          // Filter out any recommendations that have the same ID as the requested track
+          // This helps avoid duplicates when the API returns the same song
+          final filteredRecommendations = recommendations.where((rec) {
+            if (rec.id == trackId || rec.webpageUrl.contains(trackId)) {
+              debugPrint('🚫 Filtering out same track from recommendations: ${rec.title}');
+              return false;
+            }
+            return true;
+          }).toList();
+          
+          debugPrint('✅ Successfully parsed ${recommendations.length} recommendations, filtered to ${filteredRecommendations.length}');
+          for (int i = 0; i < filteredRecommendations.length && i < 3; i++) {
+            debugPrint('  ${i + 1}. ${filteredRecommendations[i].title} by ${filteredRecommendations[i].artist}');
           }
-          return recommendations;
+          return filteredRecommendations;
         } else {
           debugPrint('❌ Invalid response format - missing recommendations structure');
           debugPrint('❌ Response structure: $jsonData');
