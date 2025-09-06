@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
+    <!-- Required Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -9,9 +9,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:label="Vibra"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:label="Vibra"
+        android:icon="@mipmap/launcher_icon"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="34">
 
         <!-- Optional: Android Auto support -->
         <meta-data
@@ -19,8 +21,9 @@
             android:resource="@xml/automotive_app_desc"
             tools:ignore="MissingResource" />
 
+        <!-- Main Activity — must extend AudioServiceActivity for background audio -->
         <activity
-            android:name=".MainActivity"
+            android:name="com.ryanheise.audioservice.AudioServiceActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
@@ -38,22 +41,25 @@
             </intent-filter>
         </activity>
 
-        <!-- Flutter embedding v2 -->
+        <!-- Flutter Embedding V2 -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- AudioService foreground service -->
+        <!-- ✅ MAIN AUDIO SERVICE — REQUIRED for binding (exported=true) -->
         <service
-            android:name="dev.fluttercommunity.audio_service.AudioServiceForegroundService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
 
-        <!-- MediaButtonReceiver -->
+        <!-- ✅ MEDIA BUTTON RECEIVER — for headset/playback controls -->
         <receiver
-            android:name="dev.fluttercommunity.audio_service.MediaButtonReceiver"
-            android:exported="true" >
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
@@ -64,8 +70,8 @@
     <!-- Required for Flutter text processing plugin -->
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 

@@ -191,11 +191,18 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          _controller.hasTrack ? _buildPlayerContent() : _buildNoTrackContent(),
-          if (_showQueue) _buildQueueOverlay(),
-        ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth > 800;
+          
+          return Stack(
+            children: [
+              _controller.hasTrack ? _buildPlayerContent() : _buildNoTrackContent(),
+              // Only show queue overlay on mobile
+              if (!isDesktop && _showQueue) _buildQueueOverlay(),
+            ],
+          );
+        },
       ),
     );
   }
@@ -239,7 +246,25 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         ),
       ),
       child: SafeArea(
-        child: SingleChildScrollView(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth > 800;
+            
+            if (isDesktop) {
+              return _buildDesktopLayout();
+            } else {
+              return _buildMobileLayout();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Stack(
+      children: [
+        SingleChildScrollView(
           child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height - 
@@ -266,18 +291,82 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                   // Action buttons (like, download, queue)
                   _buildActionButtons(),
                   const SizedBox(height: 20),
-                  // Error message
-                  if (_controller.errorMessage != null) _buildErrorMessage(),
-                  // Loading overlay
-                  if (_controller.isLoading) _buildLoadingOverlay(),
                 ],
               ),
             ),
           ),
         ),
-      ),
+        // Error message overlay
+        if (_controller.errorMessage != null) 
+          Positioned.fill(child: _buildErrorMessage()),
+        // Loading overlay
+        if (_controller.isLoading) 
+          Positioned.fill(child: _buildLoadingOverlay()),
+      ],
     );
   }
+
+  Widget _buildDesktopLayout() {
+    return Stack(
+      children: [
+        Row(
+      children: [
+        // Left side - Player controls
+        Expanded(
+          flex: 3,
+          child: Container(
+            height: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top,
+            padding: const EdgeInsets.all(32.0),
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top - 64,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Compact album artwork
+                    _buildCompactAlbumArtwork(),
+                    const SizedBox(height: 20),
+                    // Track info
+                    _buildDesktopTrackInfo(),
+                    const SizedBox(height: 20),
+                    // Progress bar
+                    _buildProgressBar(),
+                    const SizedBox(height: 20),
+                    // Enhanced desktop controls
+                    _buildDesktopControls(),
+                    const SizedBox(height: 16),
+                    // Action buttons
+                    _buildDesktopActionButtons(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Vertical divider
+        Container(
+          width: 1,
+          color: const Color(0xFF333333),
+        ),
+        // Right side - Queue
+        Expanded(
+          flex: 2,
+          child: _buildDesktopQueue(),
+        ),
+      ],
+    ),
+    // Error message overlay
+    if (_controller.errorMessage != null) 
+      Positioned.fill(child: _buildErrorMessage()),
+    // Loading overlay
+    if (_controller.isLoading) 
+      Positioned.fill(child: _buildLoadingOverlay()),
+    ],
+  );
+}
 
   Widget _buildAlbumArtwork() {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -398,6 +487,463 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
           overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+
+  Widget _buildCompactAlbumArtwork() {
+    return Container(
+      width: 180,
+      height: 180,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFB91C1C).withOpacity(0.3),
+            blurRadius: 20,
+            spreadRadius: 3,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: _controller.currentTrack!.thumbnail.isNotEmpty
+            ? Image.network(
+                _controller.currentTrack!.thumbnail,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF2A2A2E),
+                          const Color(0xFF1C1C1E),
+                        ],
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.music_note_rounded,
+                      color: Color(0xFF666666),
+                      size: 70,
+                    ),
+                  );
+                },
+              )
+            : Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF2A2A2E),
+                      const Color(0xFF1C1C1E),
+                    ],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.music_note_rounded,
+                  color: Color(0xFF666666),
+                  size: 70,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopTrackInfo() {
+    return Column(
+      children: [
+        Text(
+          _controller.currentTrack!.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'monospace',
+            letterSpacing: 0.5,
+            height: 1.2,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _controller.currentTrack!.artist,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'monospace',
+            letterSpacing: 0.3,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        // Queue position indicator
+        if (_controller.queue.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2E).withOpacity(0.8),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF3A3A3E),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              'Track ${_controller.currentIndex + 1} of ${_controller.queue.length}',
+              style: const TextStyle(
+                color: Color(0xFF999999),
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopControls() {
+    return Column(
+      children: [
+        // Main controls row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildDesktopControlButton(
+              icon: Icons.skip_previous_rounded,
+              size: 28,
+              isEnabled: _controller.hasPrevious && _controller.canControl,
+              onPressed: _controller.hasPrevious && _controller.canControl
+                  ? () => _controller.playPrevious()
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            // Enhanced play/pause button
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFDC2626),
+                    Color(0xFFB91C1C),
+                    Color(0xFF991B1B),
+                  ],
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFB91C1C).withOpacity(0.4),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: Icon(
+                  _controller.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: Colors.white,
+                ),
+                iconSize: 28,
+                onPressed: _controller.canControl
+                    ? () {
+                        if (_controller.isPlaying) {
+                          _controller.pause();
+                        } else {
+                          _controller.resume();
+                        }
+                      }
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 16),
+            _buildDesktopControlButton(
+              icon: Icons.skip_next_rounded,
+              size: 28,
+              isEnabled: _controller.hasNext && _controller.canControl,
+              onPressed: _controller.hasNext && _controller.canControl
+                  ? () => _controller.playNext()
+                  : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopControlButton({
+    required IconData icon,
+    required double size,
+    required bool isEnabled,
+    required VoidCallback? onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2E).withOpacity(0.8),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isEnabled 
+              ? const Color(0xFF3A3A3E) 
+              : const Color(0xFF2A2A2A),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IconButton(
+        icon: Icon(
+          icon,
+          color: isEnabled ? Colors.white : Colors.white38,
+        ),
+        iconSize: size,
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  Widget _buildDesktopActionButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildCompactActionButton(
+          icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          label: _isLiked ? 'Liked' : 'Like',
+          color: _isLiked ? const Color(0xFFB91C1C) : Colors.white.withOpacity(0.8),
+          onTap: _toggleLike,
+        ),
+        _buildCompactActionButton(
+          icon: _isDownloaded ? Icons.download_done_rounded : Icons.download_rounded,
+          label: _isDownloaded ? 'Downloaded' : 'Download',
+          color: _isDownloaded ? Colors.green : Colors.white.withOpacity(0.8),
+          onTap: _isDownloaded ? null : _downloadTrack,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2A2E).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFF3A3A3E),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopQueue() {
+    return Container(
+      height: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1C1C1E),
+      ),
+      child: Column(
+        children: [
+          // Queue header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFF333333), width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.queue_music_rounded,
+                  color: Colors.white.withOpacity(0.8),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Playing Queue',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      Text(
+                        '${_controller.queue.length} tracks',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 14,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    _showOptions();
+                  },
+                  icon: Icon(
+                    Icons.more_vert_rounded,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Queue list
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _controller.queue.length,
+              itemBuilder: (context, index) {
+                final track = _controller.queue[index];
+                final isCurrentTrack = index == _controller.currentIndex;
+                
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isCurrentTrack 
+                        ? const Color(0xFFB91C1C).withOpacity(0.2)
+                        : const Color(0xFF2A2A2E).withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: isCurrentTrack 
+                        ? Border.all(color: const Color(0xFFB91C1C), width: 1)
+                        : null,
+                  ),
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: track.thumbnail.isNotEmpty
+                            ? Image.network(
+                                track.thumbnail,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: const Color(0xFF3A3A3E),
+                                    child: const Icon(
+                                      Icons.music_note_rounded,
+                                      color: Color(0xFF666666),
+                                      size: 20,
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: const Color(0xFF3A3A3E),
+                                child: const Icon(
+                                  Icons.music_note_rounded,
+                                  color: Color(0xFF666666),
+                                  size: 20,
+                                ),
+                              ),
+                      ),
+                    ),
+                    title: Text(
+                      track.title,
+                      style: TextStyle(
+                        color: isCurrentTrack ? const Color(0xFFB91C1C) : Colors.white,
+                        fontSize: 14,
+                        fontWeight: isCurrentTrack ? FontWeight.w600 : FontWeight.w500,
+                        fontFamily: 'monospace',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      track.artist,
+                      style: TextStyle(
+                        color: isCurrentTrack 
+                            ? const Color(0xFFB91C1C).withOpacity(0.8)
+                            : Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: isCurrentTrack
+                        ? Icon(
+                            _controller.isPlaying 
+                                ? Icons.volume_up_rounded 
+                                : Icons.pause_rounded,
+                            color: const Color(0xFFB91C1C),
+                            size: 16,
+                          )
+                        : null,
+                    onTap: () {
+                      if (!isCurrentTrack) {
+                        _controller.playTrackFromQueue(_controller.queue, index);
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -822,64 +1368,60 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   }
 
   Widget _buildLoadingOverlay() {
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black.withOpacity(0.8),
-        child: UniversalLoader(
-          message: _controller.loadingMessage,
-          size: 50,
-        ),
+    return Container(
+      color: Colors.black.withOpacity(0.8),
+      child: UniversalLoader(
+        message: _controller.loadingMessage,
+        size: 50,
       ),
     );
   }
 
   Widget _buildErrorMessage() {
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black.withOpacity(0.8),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                color: Colors.red,
-                size: 48,
+    return Container(
+      color: Colors.black.withOpacity(0.8),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Playback Error',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'monospace',
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Playback Error',
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _controller.errorMessage!,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  color: Colors.white70,
+                  fontSize: 14,
                   fontFamily: 'monospace',
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  _controller.errorMessage!,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontFamily: 'monospace',
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _controller.retry(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB91C1C),
+                foregroundColor: Colors.white,
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => _controller.retry(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFB91C1C),
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       ),
     );

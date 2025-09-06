@@ -13,8 +13,8 @@ class MusicPlayerController extends ChangeNotifier {
   factory MusicPlayerController() => _instance;
   MusicPlayerController._internal() {
     print('🎵 Initializing MusicPlayerController');
-    _setupAudioPlayer();
-    _initBackgroundAudio();
+  _setupAudioPlayer();
+  // Background audio handler is now lazily initialized via _ensureAudioHandler()
     _initDownloadService();
     
     // Make sure we get onAudioComplete callbacks
@@ -27,7 +27,7 @@ class MusicPlayerController extends ChangeNotifier {
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   AudioHandler? _audioHandler;
-  Future<AudioHandler?>? _audioHandlerInit;
+  Future<AudioHandler?>? _audioHandlerInit; // Guards concurrent init calls
   
   MusicTrack? _currentTrack;
   List<MusicTrack> _queue = [];
@@ -63,8 +63,12 @@ class MusicPlayerController extends ChangeNotifier {
   }
 
   Future<AudioHandler?> _ensureAudioHandler() async {
+    // If already created, return immediately
     if (_audioHandler != null) return _audioHandler;
-    _audioHandlerInit ??= _initBackgroundAudio().then((_) => _audioHandler);
+    // If an initialization is in-flight, await it
+    if (_audioHandlerInit != null) return _audioHandlerInit;
+    // Start a single initialization future
+    _audioHandlerInit = _initBackgroundAudio().then((_) => _audioHandler);
     return _audioHandlerInit;
   }
   
@@ -206,6 +210,10 @@ class MusicPlayerController extends ChangeNotifier {
 
   Future<void> _initBackgroundAudio() async {
     try {
+      if (_audioHandler != null) {
+        print('ℹ️ AudioHandler already initialized, skipping');
+        return;
+      }
       _audioHandler = await initBackgroundAudio(
         _audioPlayer,
         onSkipNext: () async => await playNext(),

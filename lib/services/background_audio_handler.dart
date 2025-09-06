@@ -147,7 +147,7 @@ Future<AudioHandler> initBackgroundAudio(
       onSkipPrevious: onSkipPrevious,
     ),
     config: AudioServiceConfig(
-      androidNotificationChannelId: 'com.example.testflutter.audio',
+      androidNotificationChannelId: 'com.vibra.audio',
       androidNotificationChannelName: 'Music Playback',
   androidNotificationIcon: 'drawable/ic_notification',
       androidNotificationOngoing: true,
