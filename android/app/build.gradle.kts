@@ -1,6 +1,7 @@
 import java.util.Properties
 import java.io.FileInputStream
 
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -31,7 +32,10 @@ android {
     }
 
     defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.vibra"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -47,46 +51,12 @@ android {
         }
     }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = false
-        }
-    }
-
     buildTypes {
-        debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
-        }
         release {
+            // Use the release signing config
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-
-    // Custom APK naming per ABI
-    applicationVariants.all {
-        val variant = this
-        outputs.all {
-            val outputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val abiFilter = outputImpl.getFilter("ABI")
-            val variantVersionName = variant.versionName
-
-            val abiName = when (abiFilter) {
-                "arm64-v8a" -> "v8"
-                "armeabi-v7a" -> "v7"
-                "x86_64" -> "x64"
-                else -> "universal"
-            }
-
-            outputImpl.outputFileName = "vibra.${variantVersionName}.${abiName}.apk"
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }

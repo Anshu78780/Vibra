@@ -165,7 +165,7 @@ Future<AudioHandler> initBackgroundAudio(
     config: AudioServiceConfig(
       androidNotificationChannelId: 'com.vibra.audio',
       androidNotificationChannelName: 'Music Playback',
-      androidNotificationIcon: 'drawable/ic_notification',
+      androidNotificationIcon: 'drawable/ic_vibra_notification',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
       preloadArtwork: true,

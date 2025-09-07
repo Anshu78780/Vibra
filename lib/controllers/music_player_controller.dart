@@ -336,7 +336,16 @@ class MusicPlayerController extends ChangeNotifier {
       _setLoading(true, 'Loading music...');
       _errorMessage = null;
       _isHandlingCompletion = false; // Reset completion flag for new track
-  await _ensureAudioHandler();
+      
+      // Immediately stop any current playback before doing anything else
+      if (_audioPlayer.playing) {
+        print('⏹️ Stopping current playback immediately');
+        await _audioPlayer.stop();
+        _isPlaying = false;
+        notifyListeners(); // Update UI to show stopped state
+      }
+      
+      await _ensureAudioHandler();
       _currentTrack = track;
       
       // If this track is not in the current queue, create a new queue with just this track
@@ -390,10 +399,12 @@ class MusicPlayerController extends ChangeNotifier {
       
       _setLoading(true, 'Preparing playback...');
       
-      // Stop any current playback before setting the new source
+      // Double-check that playback is stopped (redundant but ensures clean state)
       if (_audioPlayer.playing) {
-        print('⏹️ Stopping current playback before loading new track');
+        print('⏹️ Double-checking that playback is stopped');
         await _audioPlayer.stop();
+        // Small delay to ensure the audio system has time to respond
+        await Future.delayed(const Duration(milliseconds: 100));
       }
       
   // Prepare lock screen metadata early (even before play)
@@ -471,6 +482,9 @@ class MusicPlayerController extends ChangeNotifier {
     print('Setting queue with ${queue.length} tracks, playing index $index');
     await _ensureAudioHandler();
     
+    // Show loading state immediately
+    _setLoading(true, 'Loading track...');
+    
     // Reset recommendation tracking when setting a new queue
     _lastRecommendationTrackId = null;
     
@@ -485,6 +499,7 @@ class MusicPlayerController extends ChangeNotifier {
     } catch (_) {}
     
     // Stop current track first
+    print('⏹️ Stopping current playback before loading new track from queue');
     await _audioPlayer.stop();
     
     // Reset player state before playing new track
@@ -500,6 +515,18 @@ class MusicPlayerController extends ChangeNotifier {
   Future<void> playTrackWithRecommendations(MusicTrack track) async {
     try {
       print('🎵 Playing track with recommendations: ${track.title}');
+      
+      // Show loading state immediately
+      _setLoading(true, 'Loading music...');
+      
+      // Stop any current playback immediately
+      if (_audioPlayer.playing) {
+        print('⏹️ Stopping current playback immediately in playTrackWithRecommendations');
+        await _audioPlayer.stop();
+        _isPlaying = false;
+        notifyListeners(); // Update UI to show stopped state
+      }
+      
       // Reset recommendation tracking for new track
       _lastRecommendationTrackId = null;
       
@@ -633,12 +660,24 @@ class MusicPlayerController extends ChangeNotifier {
       }
       
       final finalNextTrack = _queue[_currentIndex];
-      _currentTrack = finalNextTrack;
+      
+      // Show loading indicator before stopping current track
+      _setLoading(true, 'Loading next track...');
       
       // Make sure we stop the current playback before starting a new one
+      print('⏹️ Stopping current playback before loading next track');
       await _audioPlayer.stop();
       
-  // Start playing the next track
+      // Small delay to ensure the audio system has fully stopped
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Update current track after stopping
+      _currentTrack = finalNextTrack;
+      
+      // Reset position
+      _position = Duration.zero;
+      
+      // Start playing the next track
       await playTrack(finalNextTrack);
       
       print('Successfully started playing next track: ${finalNextTrack.title}');
@@ -648,14 +687,45 @@ class MusicPlayerController extends ChangeNotifier {
   }
 
   Future<void> playNext() async {
+    // Show loading state immediately for better UX
+    _setLoading(true, 'Loading next track...');
+    
+    // Stop any current playback immediately
+    if (_audioPlayer.playing) {
+      print('⏹️ Stopping current playback immediately in playNext()');
+      await _audioPlayer.stop();
+      _isPlaying = false;
+      notifyListeners(); // Update UI to show stopped state
+    }
+    
     await _playNext();
   }
 
   Future<void> playPrevious() async {
     if (hasPrevious) {
+      // Show loading state immediately
+      _setLoading(true, 'Loading previous track...');
+      
+      // Stop any current playback immediately
+      if (_audioPlayer.playing) {
+        print('⏹️ Stopping current playback immediately in playPrevious()');
+        await _audioPlayer.stop();
+        _isPlaying = false;
+        notifyListeners(); // Update UI to show stopped state
+        
+        // Small delay to ensure the audio system has time to respond
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      
       _currentIndex--;
       final previousTrack = _queue[_currentIndex];
+      
+      // Update current track after stopping
       _currentTrack = previousTrack;
+      
+      // Reset position
+      _position = Duration.zero;
+      
       await playTrack(previousTrack);
     }
   }
