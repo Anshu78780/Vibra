@@ -27,11 +27,25 @@ class BackgroundAudioHandler extends BaseAudioHandler
   }
 
   Future<void> _init() async {
-    // Configure audio focus/session - skip on Windows as it may not be supported
+    // Configure audio focus/session - improved for better background handling
     if (!Platform.isWindows) {
       try {
         final session = await AudioSession.instance;
-        await session.configure(const AudioSessionConfiguration.music());
+        await session.configure(AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playback,
+          avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.mixWithOthers,
+          avAudioSessionMode: AVAudioSessionMode.defaultMode,
+          avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
+          avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+          androidAudioAttributes: const AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.music,
+            flags: AndroidAudioFlags.none,
+            usage: AndroidAudioUsage.media,
+          ),
+          androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+          androidWillPauseWhenDucked: false, // Continue playing when other apps use audio
+        ));
+        print('✅ Audio session configured for background playback');
       } catch (e) {
         print('Warning: Could not configure audio session: $e');
       }
@@ -162,20 +176,22 @@ Future<AudioHandler> initBackgroundAudio(
       onSkipNext: onSkipNext,
       onSkipPrevious: onSkipPrevious,
     ),
-    config: AudioServiceConfig(
-      androidNotificationChannelId: 'com.vibra.audio',
-      androidNotificationChannelName: 'Music Playback',
-      androidNotificationIcon: 'drawable/ic_vibra_notification',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-      preloadArtwork: true,
-      // Windows-specific optimizations
-      androidShowNotificationBadge: !Platform.isWindows,
-      androidResumeOnClick: !Platform.isWindows,
-      // Enable faster media item updates for Windows
-      fastForwardInterval: const Duration(seconds: 10),
-      rewindInterval: const Duration(seconds: 10),
-    ),
+  config: AudioServiceConfig(
+    androidNotificationChannelId: 'com.vibra.audio',
+    androidNotificationChannelName: 'Music Playback',
+    androidNotificationChannelDescription: 'Controls for music playback',
+    androidNotificationIcon: 'drawable/ic_vibra_notification',
+    androidNotificationOngoing: false, 
+    androidStopForegroundOnPause: false, // Keep service alive when paused
+    androidNotificationClickStartsActivity: true,
+    preloadArtwork: true,
+    // Windows-specific optimizations
+    androidShowNotificationBadge: !Platform.isWindows,
+    androidResumeOnClick: !Platform.isWindows,
+    // Enable faster media item updates for Windows
+    fastForwardInterval: const Duration(seconds: 10),
+    rewindInterval: const Duration(seconds: 10),
+  ),
   );
 }
 

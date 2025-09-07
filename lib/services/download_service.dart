@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,6 +9,55 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../models/music_model.dart';
 import '../services/audio_service.dart' as yt_audio_service;
+
+// Simple semaphore implementation for concurrent downloads
+class Semaphore {
+  int _count;
+  final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
+
+  Semaphore(this._count);
+
+  Future<void> acquire() async {
+    if (_count > 0) {
+      _count--;
+      return;
+    }
+
+    final completer = Completer<void>();
+    _waitQueue.add(completer);
+    return completer.future;
+  }
+
+  void release() {
+    if (_waitQueue.isNotEmpty) {
+      final completer = _waitQueue.removeFirst();
+      completer.complete();
+    } else {
+      _count++;
+    }
+  }
+}
+
+class BulkDownloadStatus {
+  final int totalTracks;
+  final int completedTracks;
+  final int failedTracks;
+  final bool isDownloading;
+  final String? currentTrackTitle;
+  final List<String> failedTrackTitles;
+
+  BulkDownloadStatus({
+    required this.totalTracks,
+    required this.completedTracks,
+    required this.failedTracks,
+    required this.isDownloading,
+    this.currentTrackTitle,
+    this.failedTrackTitles = const [],
+  });
+
+  double get progress => totalTracks > 0 ? completedTracks / totalTracks : 0.0;
+  int get remainingTracks => totalTracks - completedTracks - failedTracks;
+}
 
 class DownloadService {
   static final DownloadService _instance = DownloadService._internal();
@@ -18,8 +68,16 @@ class DownloadService {
   final StreamController<Map<String, double>> _progressController = StreamController<Map<String, double>>.broadcast();
   final Map<String, double> _downloadProgress = {};
   final Map<String, bool> _activeDownloads = {};
+  
+  // Bulk download state
+  final StreamController<BulkDownloadStatus> _bulkDownloadController = StreamController<BulkDownloadStatus>.broadcast();
+  bool _isBulkDownloading = false;
+  int _bulkTotalTracks = 0;
+  int _bulkCompletedTracks = 0;
+  int _bulkFailedTracks = 0;
 
   Stream<Map<String, double>> get downloadProgressStream => _progressController.stream;
+  Stream<BulkDownloadStatus> get bulkDownloadStream => _bulkDownloadController.stream;
 
   Future<void> initialize() async {
     await _initializeNotifications();
@@ -108,51 +166,83 @@ class DownloadService {
       // Get audio URL
       final audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
       
-      // Start HTTP download with progress tracking
-      final request = http.Request('GET', Uri.parse(audioUrl));
-      final response = await http.Client().send(request);
+      // Use HTTP client with better configuration for faster downloads
+      final client = http.Client();
       
-      if (response.statusCode != 200) {
-        throw Exception('Failed to download: ${response.statusCode}');
-      }
-
-      final downloadsDir = await _getDownloadsDirectory();
-      final file = File('$downloadsDir/$videoId.mp3');
-      final sink = file.openWrite();
-
-      final contentLength = response.contentLength ?? 0;
-      int downloadedBytes = 0;
-      DateTime lastUpdateTime = DateTime.now();
-
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        downloadedBytes += chunk.length;
+      try {
+        // Start HTTP download with progress tracking
+        final request = http.Request('GET', Uri.parse(audioUrl));
+        // Add headers that might help with speed
+        request.headers.addAll({
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*',
+          'Accept-Encoding': 'identity', // Disable compression for faster transfer
+          'Connection': 'keep-alive',
+        });
         
-        final progress = contentLength > 0 ? downloadedBytes / contentLength : 0.0;
-        _downloadProgress[videoId] = progress;
+        final response = await client.send(request);
         
-        // Update progress every 500ms to avoid too frequent updates
-        final now = DateTime.now();
-        if (now.difference(lastUpdateTime).inMilliseconds > 500) {
-          _progressController.add(_downloadProgress);
-          
-          // Update notification
-          final percentage = (progress * 100).toInt();
-          final downloadedMB = (downloadedBytes / 1024 / 1024).toStringAsFixed(1);
-          final totalMB = contentLength > 0 ? (contentLength / 1024 / 1024).toStringAsFixed(1) : '?';
-          
-          await _showDownloadNotification(
-            videoId.hashCode,
-            track.title,
-            'Downloaded $downloadedMB MB / $totalMB MB',
-            percentage,
-          );
-          
-          lastUpdateTime = now;
+        if (response.statusCode != 200) {
+          throw Exception('Failed to download: ${response.statusCode}');
         }
-      }
 
-      await sink.close();
+        final downloadsDir = await _getDownloadsDirectory();
+        final file = File('$downloadsDir/$videoId.mp3');
+        final sink = file.openWrite();
+
+        final contentLength = response.contentLength ?? 0;
+        int downloadedBytes = 0;
+        DateTime lastUpdateTime = DateTime.now();
+        
+        // Use larger buffer for faster downloads
+        final chunks = <List<int>>[];
+        const bufferSize = 64 * 1024; // 64KB buffer
+        
+        await for (final chunk in response.stream) {
+          chunks.add(chunk);
+          downloadedBytes += chunk.length;
+          
+          // Write in larger batches for better performance
+          if (chunks.length >= 10 || downloadedBytes >= bufferSize) {
+            for (final bufferedChunk in chunks) {
+              sink.add(bufferedChunk);
+            }
+            chunks.clear();
+          }
+          
+          final progress = contentLength > 0 ? downloadedBytes / contentLength : 0.0;
+          _downloadProgress[videoId] = progress;
+          
+          // Update progress every 200ms for more responsive UI
+          final now = DateTime.now();
+          if (now.difference(lastUpdateTime).inMilliseconds > 200) {
+            _progressController.add(_downloadProgress);
+            
+            // Update notification
+            final percentage = (progress * 100).toInt();
+            final downloadedMB = (downloadedBytes / 1024 / 1024).toStringAsFixed(1);
+            final totalMB = contentLength > 0 ? (contentLength / 1024 / 1024).toStringAsFixed(1) : '?';
+            
+            await _showDownloadNotification(
+              videoId.hashCode,
+              track.title,
+              '$downloadedMB MB / $totalMB MB',
+              percentage,
+            );
+            
+            lastUpdateTime = now;
+          }
+        }
+        
+        // Write any remaining chunks
+        for (final bufferedChunk in chunks) {
+          sink.add(bufferedChunk);
+        }
+        
+        await sink.close();
+      } finally {
+        client.close();
+      }
 
       // Save track metadata
       await _saveTrackMetadata(track);
@@ -196,6 +286,101 @@ class DownloadService {
         _progressController.add(_downloadProgress);
       });
     }
+  }
+
+  // New bulk download method with concurrent downloads
+  Future<void> downloadAllTracks(List<MusicTrack> tracks, {int maxConcurrent = 3}) async {
+    if (tracks.isEmpty || _isBulkDownloading) return;
+    
+    _isBulkDownloading = true;
+    _bulkTotalTracks = tracks.length;
+    _bulkCompletedTracks = 0;
+    _bulkFailedTracks = 0;
+    final failedTrackTitles = <String>[];
+    
+    // Filter out already downloaded tracks
+    final tracksToDownload = <MusicTrack>[];
+    for (final track in tracks) {
+      if (!await isDownloaded(track)) {
+        tracksToDownload.add(track);
+      } else {
+        _bulkCompletedTracks++;
+      }
+    }
+    
+    // Update initial status
+    _bulkDownloadController.add(BulkDownloadStatus(
+      totalTracks: _bulkTotalTracks,
+      completedTracks: _bulkCompletedTracks,
+      failedTracks: _bulkFailedTracks,
+      isDownloading: true,
+      failedTrackTitles: failedTrackTitles,
+    ));
+    
+    if (tracksToDownload.isEmpty) {
+      _isBulkDownloading = false;
+      _bulkDownloadController.add(BulkDownloadStatus(
+        totalTracks: _bulkTotalTracks,
+        completedTracks: _bulkCompletedTracks,
+        failedTracks: _bulkFailedTracks,
+        isDownloading: false,
+        failedTrackTitles: failedTrackTitles,
+      ));
+      return;
+    }
+    
+    debugPrint('🔽 Starting bulk download of ${tracksToDownload.length} tracks');
+    
+    // Process downloads in concurrent batches
+    final semaphore = Semaphore(maxConcurrent);
+    final futures = tracksToDownload.map((track) async {
+      await semaphore.acquire();
+      try {
+        _bulkDownloadController.add(BulkDownloadStatus(
+          totalTracks: _bulkTotalTracks,
+          completedTracks: _bulkCompletedTracks,
+          failedTracks: _bulkFailedTracks,
+          isDownloading: true,
+          currentTrackTitle: track.title,
+          failedTrackTitles: failedTrackTitles,
+        ));
+        
+        await downloadTrack(track);
+        _bulkCompletedTracks++;
+        debugPrint('✅ Bulk download completed: ${track.title} (${_bulkCompletedTracks}/${_bulkTotalTracks})');
+      } catch (e) {
+        _bulkFailedTracks++;
+        failedTrackTitles.add(track.title);
+        debugPrint('❌ Bulk download failed: ${track.title} - $e');
+      } finally {
+        semaphore.release();
+        
+        // Update status
+        _bulkDownloadController.add(BulkDownloadStatus(
+          totalTracks: _bulkTotalTracks,
+          completedTracks: _bulkCompletedTracks,
+          failedTracks: _bulkFailedTracks,
+          isDownloading: _bulkCompletedTracks + _bulkFailedTracks < _bulkTotalTracks,
+          failedTrackTitles: failedTrackTitles,
+        ));
+      }
+    }).toList();
+    
+    // Wait for all downloads to complete
+    await Future.wait(futures);
+    
+    _isBulkDownloading = false;
+    
+    // Final status update
+    _bulkDownloadController.add(BulkDownloadStatus(
+      totalTracks: _bulkTotalTracks,
+      completedTracks: _bulkCompletedTracks,
+      failedTracks: _bulkFailedTracks,
+      isDownloading: false,
+      failedTrackTitles: failedTrackTitles,
+    ));
+    
+    debugPrint('🎯 Bulk download finished: ${_bulkCompletedTracks} completed, ${_bulkFailedTracks} failed');
   }
 
   Future<void> _saveTrackMetadata(MusicTrack track) async {
@@ -357,5 +542,6 @@ class DownloadService {
 
   void dispose() {
     _progressController.close();
+    _bulkDownloadController.close();
   }
 }

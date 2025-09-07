@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 import '../models/music_model.dart';
-import '../services/music_service.dart';
-import '../services/suggestion_service.dart';
+import '../services/youtube_search_service.dart';
 import '../services/search_history_service.dart';
 import '../controllers/music_player_controller.dart';
 import '../utils/app_colors.dart';
@@ -65,7 +64,7 @@ class _SearchPageState extends State<SearchPage> {
     });
 
     try {
-      final suggestions = await SuggestionService.getSuggestions(query);
+      final suggestions = await YoutubeSearchService.getSuggestions(query);
       setState(() {
         _suggestions = suggestions;
         _isLoadingSuggestions = false;
@@ -136,9 +135,9 @@ class _SearchPageState extends State<SearchPage> {
       await SearchHistoryService.addToHistory(query);
       await _loadSearchHistory(); // Refresh history
       
-      final response = await MusicService.searchMusic(query);
+      final searchResponse = await YoutubeSearchService.searchMusic(query);
       setState(() {
-        _searchResults = response.songs;
+        _searchResults = searchResponse.songs;
         _isSearching = false;
       });
     } catch (e) {

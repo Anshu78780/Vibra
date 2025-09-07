@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Audio service notification channel -->
+    <string name="audio_service_channel_name">Music Playback</string>
+    <string name="audio_service_channel_description">Controls for music playback</string>
+    
+    <!-- Background playback messages -->
+    <string name="background_playback_title">Vibra Music</string>
+    <string name="background_playback_description">Playing music in background</string>
+    
+    <!-- Battery optimization messages -->
+    <string name="battery_optimization_title">Background Music Playback</string>
+    <string name="battery_optimization_message">To ensure uninterrupted music playback, please disable battery optimization for Vibra.</string>
+    <string name="battery_optimization_button">Settings</string>
+    <string name="battery_optimization_cancel">Cancel</string>
+</resources>

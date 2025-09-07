@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 import '../models/music_model.dart';
 import '../models/playlist_model.dart';
-import '../services/music_service.dart';
+import '../services/youtube_search_service.dart';
 import '../services/playlist_service.dart';
 import '../services/playlist_songs_service.dart';
 import '../services/cache_service.dart';
@@ -96,7 +96,7 @@ Cache Debug Info:
       
       // No valid cache, fetch fresh data
       print('🌐 Fetching fresh trending music from API');
-      final response = await MusicService.fetchTrendingMusic();
+      final response = await YoutubeSearchService.fetchTrendingMusic();
       
       setState(() {
         _musicTracks = response.trendingMusic;
@@ -118,7 +118,7 @@ Cache Debug Info:
   Future<void> _refreshMusicDataInBackground() async {
     try {
       print('🔄 Refreshing trending music in background');
-      final response = await MusicService.fetchTrendingMusic();
+      final response = await YoutubeSearchService.fetchTrendingMusic();
       
       // Update cache with fresh data
       await CacheService.cacheTrendingMusic(response.trendingMusic);
@@ -210,7 +210,7 @@ Cache Debug Info:
 
     try {
       print('🌐 Force fetching fresh trending music from API');
-      final response = await MusicService.fetchTrendingMusic();
+      final response = await YoutubeSearchService.fetchTrendingMusic();
       
       setState(() {
         _musicTracks = response.trendingMusic;

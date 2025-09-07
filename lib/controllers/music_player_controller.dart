@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_service/audio_service.dart';
 import 'dart:io' show Platform;
+import 'dart:async';
 import '../models/music_model.dart';
 import '../services/audio_service.dart' as yt_audio_service;
 import '../services/background_audio_handler.dart';
@@ -47,6 +48,7 @@ class MusicPlayerController extends ChangeNotifier {
   bool _isHandlingCompletion = false; // Flag to prevent duplicate completion handling
   String? _lastRecommendationTrackId; // Track the last track for which recommendations were loaded
   String? _pendingTrackId; // Track ID of the song that should be played next (for quick clicks)
+  Timer? _windowsSmtcTimer; // Timer to periodically refresh Windows SMTC
 
   // Getters
   MusicTrack? get currentTrack => _currentTrack;
@@ -175,13 +177,20 @@ class MusicPlayerController extends ChangeNotifier {
     _audioPlayer.positionStream.listen((position) {
       _position = position;
       
-      // Update Windows media controls periodically (every 5 seconds to avoid spam)
-      if (Platform.isWindows && _currentTrack != null && _position.inSeconds % 5 == 0) {
-        WindowsMediaService.instance.updatePlaybackStatus(
-          isPlaying: _isPlaying,
-          positionMs: _position.inMilliseconds,
-          durationMs: _duration.inMilliseconds,
-        );
+      // Update Windows media controls more frequently to maintain visibility
+      if (Platform.isWindows && _currentTrack != null) {
+        // Update every 3 seconds or when position is at significant milestones
+        final shouldUpdate = _position.inSeconds % 3 == 0 || 
+                           _position.inSeconds % 10 == 0 ||
+                           _position.inMilliseconds == 0;
+                           
+        if (shouldUpdate) {
+          WindowsMediaService.instance.updatePlaybackStatus(
+            isPlaying: _isPlaying,
+            positionMs: _position.inMilliseconds,
+            durationMs: _duration.inMilliseconds,
+          );
+        }
       }
       
       // Check if we should preload the next track (30 seconds before end)
@@ -292,7 +301,15 @@ class MusicPlayerController extends ChangeNotifier {
         onSeek: (positionMs) => seek(Duration(milliseconds: positionMs)),
       );
       
-      print('✅ Windows Media Service initialized');
+      // Start periodic timer to keep SMTC visible (every 15 seconds)
+      _windowsSmtcTimer?.cancel();
+      _windowsSmtcTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (_currentTrack != null && Platform.isWindows) {
+          WindowsMediaService.instance.forceShow();
+        }
+      });
+      
+      print('✅ Windows Media Service initialized with periodic refresh');
     } catch (e) {
       print('❌ Failed to init Windows Media Service: $e');
     }
@@ -311,7 +328,14 @@ class MusicPlayerController extends ChangeNotifier {
         await _audioHandler!.updateMediaItem(item);
       }
       
-      // Update Windows SystemMediaTransportControls
+      // Always ensure Windows Media Service is initialized
+      if (!WindowsMediaService.instance.isInitialized) {
+        await WindowsMediaService.instance.initialize();
+        // Small delay to ensure initialization completes
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      
+      // Update Windows SystemMediaTransportControls with retry logic
       await WindowsMediaService.instance.updateMetadata(
         title: _currentTrack!.title,
         artist: _currentTrack!.artist,
@@ -325,9 +349,18 @@ class MusicPlayerController extends ChangeNotifier {
         durationMs: _duration.inMilliseconds,
       );
       
+      // Force the SMTC to show
+      await WindowsMediaService.instance.forceShow();
+      
       print('🪟 Refreshed Windows media controls for: ${_currentTrack!.title}');
     } catch (e) {
       print('❌ Failed to refresh Windows media controls: $e');
+      // Try to reinitialize on failure
+      try {
+        await WindowsMediaService.instance.initialize();
+      } catch (reinitError) {
+        print('❌ Failed to reinitialize Windows media service: $reinitError');
+      }
     }
   }
 
@@ -497,9 +530,12 @@ class MusicPlayerController extends ChangeNotifier {
   final item = _toMediaItem(track, duration: _audioPlayer.duration);
   await _audioHandler?.updateMediaItem(item);
       
-  // Additional Windows media control refresh
+  // Additional Windows media control refresh - immediate and forced
   if (Platform.isWindows) {
     await _refreshWindowsMediaControls();
+    // Force show with a small delay to ensure it sticks
+    await Future.delayed(const Duration(milliseconds: 300));
+    await WindowsMediaService.instance.forceShow();
   }
       
     } catch (e) {
@@ -880,9 +916,11 @@ class MusicPlayerController extends ChangeNotifier {
     if (!canControl) return;
     try {
       await _audioPlayer.pause();
-      // Refresh Windows media controls on pause
+      // Refresh Windows media controls on pause and ensure visibility
       if (Platform.isWindows) {
         await _refreshWindowsMediaControls();
+        // Additional force show to ensure SMTC remains visible
+        await WindowsMediaService.instance.forceShow();
       }
     } catch (e) {
       print('Error pausing: $e');
@@ -895,9 +933,11 @@ class MusicPlayerController extends ChangeNotifier {
     if (!canControl) return;
     try {
       await _audioPlayer.play();
-      // Refresh Windows media controls on resume
+      // Refresh Windows media controls on resume and ensure visibility
       if (Platform.isWindows) {
         await _refreshWindowsMediaControls();
+        // Additional force show to ensure SMTC remains visible
+        await WindowsMediaService.instance.forceShow();
       }
     } catch (e) {
       print('Error resuming: $e');
@@ -1079,8 +1119,8 @@ class MusicPlayerController extends ChangeNotifier {
       DownloadService().downloadProgressStream;
 
   @override
-  @override
   void dispose() {
+    _windowsSmtcTimer?.cancel();
     _audioPlayer.dispose();
     if (Platform.isWindows) {
       WindowsMediaService.instance.dispose();

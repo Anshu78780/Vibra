@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 import '../controllers/music_player_controller.dart';
 import '../components/universal_loader.dart';
+import '../services/windows_media_service.dart';
 import 'full_music_player.dart';
 
 class MiniMusicPlayer extends StatefulWidget {
@@ -245,6 +246,12 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                           _controller.pause();
                         } else {
                           _controller.resume();
+                          // Ensure Windows SMTC shows after resume
+                          if (Platform.isWindows) {
+                            Future.delayed(const Duration(milliseconds: 500), () {
+                              WindowsMediaService.instance.forceShow();
+                            });
+                          }
                         }
                       } : null,
                       isEnabled: _controller.canControl,
@@ -483,6 +490,12 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                               _controller.pause();
                             } else {
                               _controller.resume();
+                              // Ensure Windows SMTC shows after resume
+                              if (Platform.isWindows) {
+                                Future.delayed(const Duration(milliseconds: 500), () {
+                                  WindowsMediaService.instance.forceShow();
+                                });
+                              }
                             }
                           } : null,
                           isEnabled: _controller.canControl,

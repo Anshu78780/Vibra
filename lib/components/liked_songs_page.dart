@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
+import 'dart:async';
 import '../models/music_model.dart';
 import '../controllers/music_player_controller.dart';
 import '../services/liked_songs_service.dart';
 import '../services/user_playlist_service.dart';
+import '../services/download_service.dart';
 import '../utils/app_colors.dart';
 import 'mini_music_player.dart';
 
@@ -20,18 +22,159 @@ class _LikedSongsPageState extends State<LikedSongsPage>
   List<UserPlaylist> _userPlaylists = [];
   bool _isLoading = true;
   TabController? _tabController;
+  bool _isDownloadingLikedSongs = false;
+  
+  // Download service and streams
+  final DownloadService _downloadService = DownloadService();
+  StreamSubscription? _bulkDownloadSubscription;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
+    _setupBulkDownloadListener();
   }
 
   @override
   void dispose() {
     _tabController?.dispose();
+    _bulkDownloadSubscription?.cancel();
     super.dispose();
+  }
+
+  void _setupBulkDownloadListener() {
+    _bulkDownloadSubscription = _downloadService.bulkDownloadStream.listen((status) {
+      if (mounted) {
+        setState(() {
+          _isDownloadingLikedSongs = status.isDownloading;
+        });
+        
+        if (!status.isDownloading && status.totalTracks > 0) {
+          // Show completion snackbar for liked songs
+          _showLikedSongsDownloadCompletion(status);
+        }
+      }
+    });
+  }
+
+  void _downloadAllLikedSongs() async {
+    if (_likedSongs.isEmpty || _isDownloadingLikedSongs) return;
+    
+    // Show confirmation dialog
+    final shouldDownload = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Download All Liked Songs',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontFamily: 'CascadiaCode',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'This will download ${_likedSongs.length} liked songs. Downloads will happen in the background.\n\nNote: Downloads require mobile data or Wi-Fi.',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontFamily: 'CascadiaCode',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontFamily: 'CascadiaCode',
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryLinearGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textPrimary,
+              ),
+              child: const Text(
+                'Download All',
+                style: TextStyle(
+                  fontFamily: 'CascadiaCode',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDownload == true) {
+      setState(() {
+        _isDownloadingLikedSongs = true;
+      });
+
+      try {
+        await _downloadService.downloadAllTracks(_likedSongs, maxConcurrent: 2);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to start downloads: $e',
+                style: const TextStyle(fontFamily: 'CascadiaCode'),
+              ),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showLikedSongsDownloadCompletion(BulkDownloadStatus status) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '🎵 Liked Songs Download Complete!',
+                style: const TextStyle(
+                  fontFamily: 'CascadiaCode',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '✅ ${status.completedTracks} songs downloaded successfully',
+                style: const TextStyle(fontFamily: 'CascadiaCode'),
+              ),
+              if (status.failedTracks > 0)
+                Text(
+                  '❌ ${status.failedTracks} songs failed',
+                  style: const TextStyle(fontFamily: 'CascadiaCode'),
+                ),
+            ],
+          ),
+          backgroundColor: AppColors.surface,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _loadData() async {
@@ -78,6 +221,47 @@ class _LikedSongsPageState extends State<LikedSongsPage>
         centerTitle: false,
         titleSpacing: 16.0,
         elevation: 0,
+        actions: [
+          if (_tabController?.index == 0 && _likedSongs.isNotEmpty && !Platform.isWindows)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: _isDownloadingLikedSongs
+                  ? const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        ),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: _downloadAllLikedSongs,
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryLinearGradient,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.download_for_offline_rounded,
+                          color: AppColors.textPrimary,
+                          size: 20,
+                        ),
+                      ),
+                      tooltip: 'Download All Liked Songs',
+                    ),
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController!,
           indicatorColor: AppColors.primary,
@@ -87,6 +271,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             fontFamily: 'CascadiaCode',
             fontWeight: FontWeight.w600,
           ),
+          onTap: (index) {
+            // Trigger rebuild to show/hide download button
+            setState(() {});
+          },
           tabs: const [
             Tab(text: 'Liked Songs'),
             Tab(text: 'My Playlists'),
@@ -1191,11 +1379,38 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
   List<MusicTrack> _songs = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isDownloadingAll = false;
+  
+  // Download service and streams
+  final DownloadService _downloadService = DownloadService();
+  StreamSubscription? _bulkDownloadSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadPlaylistSongs();
+    _setupBulkDownloadListener();
+  }
+
+  @override
+  void dispose() {
+    _bulkDownloadSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupBulkDownloadListener() {
+    _bulkDownloadSubscription = _downloadService.bulkDownloadStream.listen((status) {
+      if (mounted) {
+        setState(() {
+          _isDownloadingAll = status.isDownloading;
+        });
+        
+        if (!status.isDownloading && status.totalTracks > 0) {
+          // Show completion dialog
+          _showDownloadCompletionDialog(status);
+        }
+      }
+    });
   }
 
   Future<void> _loadPlaylistSongs() async {
@@ -1235,6 +1450,49 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
         ),
         centerTitle: false,
         elevation: 0,
+        actions: [
+          if (_songs.isNotEmpty && !Platform.isWindows)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: _isDownloadingAll
+                  ? const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                        ),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: _downloadAllSongs,
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6366F1), Color(0xFFDC2626)],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6366F1).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.download_for_offline_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      tooltip: 'Download All Songs',
+                    ),
+            ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadPlaylistSongs,
@@ -1450,6 +1708,194 @@ class _UserPlaylistDetailsPageState extends State<UserPlaylistDetailsPage> {
 
   void _playSong(MusicTrack song, int index) {
     MusicPlayerController().playTrackFromQueue(_songs, index);
+  }
+
+  void _downloadAllSongs() async {
+    if (_songs.isEmpty || _isDownloadingAll) return;
+    
+    // Show confirmation dialog
+    final shouldDownload = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text(
+          'Download All Songs',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'CascadiaCode',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'This will download ${_songs.length} songs from "${widget.playlist.name}". Downloads will happen in the background.\n\nNote: Downloads require mobile data or Wi-Fi.',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontFamily: 'CascadiaCode',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.white54,
+                fontFamily: 'CascadiaCode',
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFFDC2626)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'Download All',
+                style: TextStyle(
+                  fontFamily: 'CascadiaCode',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDownload == true) {
+      setState(() {
+        _isDownloadingAll = true;
+      });
+
+      try {
+        await _downloadService.downloadAllTracks(_songs, maxConcurrent: 2);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to start downloads: $e',
+                style: const TextStyle(fontFamily: 'CascadiaCode'),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showDownloadCompletionDialog(BulkDownloadStatus status) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFFDC2626)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.download_done_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Downloads Complete',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'CascadiaCode',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '✅ ${status.completedTracks} songs downloaded successfully',
+              style: const TextStyle(
+                color: Colors.green,
+                fontFamily: 'CascadiaCode',
+              ),
+            ),
+            if (status.failedTracks > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                '❌ ${status.failedTracks} songs failed to download',
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
+              if (status.failedTrackTitles.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Failed songs:',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontFamily: 'CascadiaCode',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ...status.failedTrackTitles.take(3).map(
+                  (title) => Text(
+                    '• $title',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontFamily: 'CascadiaCode',
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (status.failedTrackTitles.length > 3)
+                  Text(
+                    '• ... and ${status.failedTrackTitles.length - 3} more',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontFamily: 'CascadiaCode',
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'OK',
+              style: TextStyle(
+                color: Color(0xFF6366F1),
+                fontFamily: 'CascadiaCode',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSongOptions(MusicTrack song) {
