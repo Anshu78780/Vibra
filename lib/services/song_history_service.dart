@@ -104,39 +104,7 @@ class SongHistoryService {
     }).toList();
   }
 
-  /// Get most played songs (by frequency)
-  Future<List<Map<String, dynamic>>> getMostPlayedSongs({int limit = 20}) async {
-    final entries = await getHistoryEntries();
-    final Map<String, int> playCount = {};
-    final Map<String, MusicTrack> trackMap = {};
-    final Map<String, DateTime> lastPlayedMap = {};
-    
-    // Count plays for each track
-    for (final entry in entries) {
-      final trackId = entry.track.id;
-      playCount[trackId] = (playCount[trackId] ?? 0) + 1;
-      trackMap[trackId] = entry.track;
-      
-      // Keep track of the most recent play time
-      if (!lastPlayedMap.containsKey(trackId) || 
-          entry.playedAt.isAfter(lastPlayedMap[trackId]!)) {
-        lastPlayedMap[trackId] = entry.playedAt;
-      }
-    }
-    
-    // Convert to list and sort by play count
-    final mostPlayed = playCount.entries.map((entry) {
-      return {
-        'track': trackMap[entry.key]!,
-        'playCount': entry.value,
-        'lastPlayed': lastPlayedMap[entry.key]!,
-      };
-    }).toList();
-    
-    mostPlayed.sort((a, b) => (b['playCount'] as int).compareTo(a['playCount'] as int));
-    
-    return mostPlayed.take(limit).toList();
-  }
+  // Most Played functionality removed
 
   /// Search history by track name or artist
   Future<List<HistoryEntry>> searchHistory(String query) async {

@@ -20,7 +20,6 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
   List<HistoryEntry> _filteredHistory = [];
   List<HistoryEntry> _recentHistory = [];
   List<HistoryEntry> _todayHistory = [];
-  List<Map<String, dynamic>> _mostPlayed = [];
   Map<String, dynamic> _stats = {};
   bool _isLoading = true;
   String _searchQuery = '';
@@ -28,7 +27,7 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadHistoryData();
   }
 
@@ -48,7 +47,6 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
       final allHistory = await _historyService.getHistoryEntries();
       final recentHistory = await _historyService.getRecentlyPlayed(limit: 100);
       final todayHistory = await _historyService.getTodaysHistory();
-      final mostPlayed = await _historyService.getMostPlayedSongs(limit: 50);
       final stats = await _historyService.getHistoryStats();
 
       setState(() {
@@ -56,7 +54,6 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
         _filteredHistory = allHistory;
         _recentHistory = recentHistory;
         _todayHistory = todayHistory;
-        _mostPlayed = mostPlayed;
         _stats = stats;
         _isLoading = false;
       });
@@ -319,112 +316,7 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
     );
   }
 
-  Widget _buildMostPlayedItem(Map<String, dynamic> item) {
-    final track = item['track'] as MusicTrack;
-    final playCount = item['playCount'] as int;
-    final lastPlayed = item['lastPlayed'] as DateTime;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFF2A2A2A), width: 0.5),
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            color: const Color(0xFF7B68EE).withOpacity(0.1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: track.thumbnail.isNotEmpty
-                ? Image.network(
-                    track.thumbnail,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.music_note,
-                      color: Color(0xFF7B68EE),
-                      size: 20,
-                    ),
-                  )
-                : const Icon(
-                    Icons.music_note,
-                    color: Color(0xFF7B68EE),
-                    size: 20,
-                  ),
-          ),
-        ),
-        title: Text(
-          track.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-            fontSize: 15,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 2),
-            Text(
-              track.artist,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 13,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7B68EE).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '$playCount plays',
-                    style: const TextStyle(
-                      color: Color(0xFF7B68EE),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Last: ${_formatDate(lastPlayed)}',
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.play_arrow, color: Color(0xFF7B68EE), size: 20),
-          onPressed: () => _playTrack(track),
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          padding: const EdgeInsets.all(6),
-        ),
-        onTap: () => _playTrack(track),
-      ),
-    );
-  }
 
   Widget _buildStatsCard() {
     if (_stats.isEmpty) return const SizedBox.shrink();
@@ -618,7 +510,6 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
           tabs: const [
             Tab(text: 'Recent'),
             Tab(text: 'Today'),
-            Tab(text: 'Most Played'),
             Tab(text: 'All'),
           ],
         ),
@@ -632,7 +523,7 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
           : Column(
               children: [
                 // Search bar (only show for All tab)
-                if (_tabController.index == 3)
+                if (_tabController.index == 2)
                   Container(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: TextField(
@@ -663,7 +554,7 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
                     ),
                   ),
                 
-                // Statistics card (only show for Most Played tab)
+                // Statistics card (only show for All tab)
                 if (_tabController.index == 2)
                   _buildStatsCard(),
                 
@@ -707,25 +598,6 @@ class _SongHistoryPageState extends State<SongHistoryPage> with TickerProviderSt
                               itemCount: _todayHistory.length,
                               itemBuilder: (context, index) {
                                 return _buildHistoryItem(_todayHistory[index]);
-                              },
-                            ),
-                      
-                      // Most Played tab
-                      _mostPlayed.isEmpty
-                          ? const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(32),
-                                child: Text(
-                                  'No frequently played songs',
-                                  style: TextStyle(color: Colors.white54),
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.only(top: 8),
-                              itemCount: _mostPlayed.length,
-                              itemBuilder: (context, index) {
-                                return _buildMostPlayedItem(_mostPlayed[index]);
                               },
                             ),
                       

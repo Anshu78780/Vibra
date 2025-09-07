@@ -46,6 +46,7 @@ class MusicPlayerController extends ChangeNotifier {
   Function(String)? _onAutoAdvance; // Callback for auto-advance notifications
   bool _isHandlingCompletion = false; // Flag to prevent duplicate completion handling
   String? _lastRecommendationTrackId; // Track the last track for which recommendations were loaded
+  String? _pendingTrackId; // Track ID of the song that should be played next (for quick clicks)
 
   // Getters
   MusicTrack? get currentTrack => _currentTrack;
@@ -330,9 +331,21 @@ class MusicPlayerController extends ChangeNotifier {
     }
   }
 
+  // Helper method to check if the current track loading operation is cancelled
+  bool _isTrackLoadingCancelled(MusicTrack track) {
+    final trackId = track.id.isNotEmpty ? track.id : track.webpageUrl;
+    return _pendingTrackId != trackId;
+  }
+  
   Future<void> playTrack(MusicTrack track) async {
     try {
-      print('⏯️ Starting playback of track: ${track.title}');
+      // Extract track ID for tracking quick clicks
+      final currentTrackId = track.id.isNotEmpty ? track.id : track.webpageUrl;
+      
+      // Set this as the pending track
+      _pendingTrackId = currentTrackId;
+      
+      print('⏯️ Starting playback of track: ${track.title} (ID: $currentTrackId)');
       _setLoading(true, 'Loading music...');
       _errorMessage = null;
       _isHandlingCompletion = false; // Reset completion flag for new track
@@ -343,6 +356,12 @@ class MusicPlayerController extends ChangeNotifier {
         await _audioPlayer.stop();
         _isPlaying = false;
         notifyListeners(); // Update UI to show stopped state
+      }
+      
+      // Check if we're still the pending track (no newer requests came in)
+      if (_isTrackLoadingCancelled(track)) {
+        print('⏹️ Cancelling playback because newer track was requested');
+        return; // Exit early, don't continue with this track
       }
       
       await _ensureAudioHandler();
@@ -367,12 +386,25 @@ class MusicPlayerController extends ChangeNotifier {
         throw Exception('Invalid YouTube URL');
       }
       print('🎬 Extracted video ID: $videoId');
+      
+      // Check if we're still the pending track (no newer requests came in)
+      if (_isTrackLoadingCancelled(track)) {
+        print('⏹️ Cancelling playback because newer track was requested (before audio URL fetch)');
+        return; // Exit early, don't continue with this track
+      }
 
       _setLoading(true, 'Getting audio stream...');
       
       // Check if track is downloaded locally first
       String audioUrl;
       final downloadedPath = await DownloadService().getDownloadedAudioPath(track);
+      
+      // Check again if cancelled
+      if (_isTrackLoadingCancelled(track)) {
+        print('⏹️ Cancelling playback because newer track was requested (after path check)');
+        return;
+      }
+      
       if (downloadedPath != null) {
         audioUrl = 'file://$downloadedPath';
         print('🎵 Using downloaded file for: ${track.title}');
@@ -381,6 +413,13 @@ class MusicPlayerController extends ChangeNotifier {
         // Check if we have a preloaded audio URL for this track
         if (PreloadingService.isPreloaded(track)) {
           final preloadedUrl = await PreloadingService.getPreloadedAudioUrl(track);
+          
+          // Check again if cancelled
+          if (_isTrackLoadingCancelled(track)) {
+            print('⏹️ Cancelling playback because newer track was requested (after preload check)');
+            return;
+          }
+          
           if (preloadedUrl != null) {
             audioUrl = preloadedUrl;
             print('🚀 Using preloaded audio URL for: ${track.title}');
@@ -388,11 +427,25 @@ class MusicPlayerController extends ChangeNotifier {
           } else {
             // Fallback to fresh URL if preloaded URL is null
             audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+            
+            // Check again if cancelled
+            if (_isTrackLoadingCancelled(track)) {
+              print('⏹️ Cancelling playback because newer track was requested (after fallback URL fetch)');
+              return;
+            }
+            
             print('🔗 Got fresh audio URL (preload failed) of length: ${audioUrl.length}');
           }
         } else {
           // Get audio URL using youtube_explode_dart
           audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+          
+          // Check again if cancelled
+          if (_isTrackLoadingCancelled(track)) {
+            print('⏹️ Cancelling playback because newer track was requested (after URL fetch)');
+            return;
+          }
+          
           print('🔗 Got fresh audio URL of length: ${audioUrl.length}');
         }
       }
@@ -407,6 +460,12 @@ class MusicPlayerController extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 100));
       }
       
+      // Check again if cancelled before setting audio source
+      if (_isTrackLoadingCancelled(track)) {
+        print('⏹️ Cancelling playback because newer track was requested (before setting audio source)');
+        return;
+      }
+      
   // Prepare lock screen metadata early (even before play)
   final preItem = _toMediaItem(track);
   await _audioHandler?.updateMediaItem(preItem);
@@ -414,6 +473,12 @@ class MusicPlayerController extends ChangeNotifier {
   // Set the audio source
       print('🔊 Setting audio URL');
       await _audioPlayer.setUrl(audioUrl);
+      
+      // Final check before starting playback
+      if (_isTrackLoadingCancelled(track)) {
+        print('⏹️ Cancelling playback because newer track was requested (after setting URL but before play)');
+        return;
+      }
       
       print('▶️ Starting playback');
       // Start playback
@@ -453,6 +518,12 @@ class MusicPlayerController extends ChangeNotifier {
           final alternativeTrack = await YouTubeFallbackService.findAlternativeTrack(track);
           
           if (alternativeTrack != null) {
+            // Check if the original request was cancelled while searching for alternative
+            if (_isTrackLoadingCancelled(track)) {
+              print('⏹️ Cancelling alternative track loading because newer track was requested');
+              return;
+            }
+            
             print('✅ Found alternative track: ${alternativeTrack.title} by ${alternativeTrack.artist}');
             print('🔗 Alternative URL: ${alternativeTrack.webpageUrl}');
             _setLoading(true, 'Loading alternative version with recommendations...');
@@ -462,7 +533,11 @@ class MusicPlayerController extends ChangeNotifier {
             return; // Exit successfully
           } else {
             print('❌ No alternative track found');
-            _errorMessage = 'This video is not available and no alternative version could be found. The video may be restricted in your region or has been removed.';
+            
+            // Only set error if not cancelled
+            if (!_isTrackLoadingCancelled(track)) {
+              _errorMessage = 'This video is not available and no alternative version could be found. The video may be restricted in your region or has been removed.';
+            }
           }
         } catch (fallbackError) {
           print('❌ Fallback search failed: $fallbackError');
@@ -514,7 +589,13 @@ class MusicPlayerController extends ChangeNotifier {
   /// Play a track and build queue using recommendations
   Future<void> playTrackWithRecommendations(MusicTrack track) async {
     try {
+      // Extract track ID for tracking quick clicks
+      final currentTrackId = track.id.isNotEmpty ? track.id : track.webpageUrl;
+      
       print('🎵 Playing track with recommendations: ${track.title}');
+      
+      // Mark this as the pending track
+      _pendingTrackId = currentTrackId;
       
       // Show loading state immediately
       _setLoading(true, 'Loading music...');
@@ -527,6 +608,12 @@ class MusicPlayerController extends ChangeNotifier {
         notifyListeners(); // Update UI to show stopped state
       }
       
+      // Check if we're still the current requested track
+      if (_isTrackLoadingCancelled(track)) {
+        print('⏹️ Cancelling recommendations playback because newer track was requested');
+        return;
+      }
+      
       // Reset recommendation tracking for new track
       _lastRecommendationTrackId = null;
       
@@ -535,13 +622,18 @@ class MusicPlayerController extends ChangeNotifier {
       _currentIndex = 0;
       await playTrack(track);
       
-      // Get recommendations in the background
-      print('🔍 Starting recommendation loading for: ${track.title}');
-      _loadRecommendationsInBackground(track);
+      // Only get recommendations if this is still the current track
+      if (!_isTrackLoadingCancelled(track)) {
+        // Get recommendations in the background
+        print('🔍 Starting recommendation loading for: ${track.title}');
+        _loadRecommendationsInBackground(track);
+      }
     } catch (e) {
       print('❌ Error playing track with recommendations: $e');
-      // Fallback to regular playback
-      await playTrack(track);
+      // Fallback to regular playback if not cancelled
+      if (!_isTrackLoadingCancelled(track)) {
+        await playTrack(track);
+      }
     }
   }
 
