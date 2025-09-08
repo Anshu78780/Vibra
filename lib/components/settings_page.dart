@@ -4,6 +4,7 @@ import 'downloads_page.dart';
 import 'song_history_page.dart';
 import 'about_page.dart';
 import 'screenscape_page.dart';
+import 'remote_control_page.dart';
 
 import 'update_dialog.dart';
 import '../services/update_manager.dart';
@@ -117,6 +118,19 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSettingsSection(
             title: 'General',
             items: [
+              _buildSettingsItem(
+                icon: Icons.wifi_tethering,
+                title: 'Music Ecosystem',
+                subtitle: 'Connect devices to control music remotely',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RemoteControlPage(),
+                    ),
+                  );
+                },
+              ),
               _buildSettingsItem(
                 icon: Icons.history,
                 title: 'Listening History',

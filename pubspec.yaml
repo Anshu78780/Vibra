@@ -25,6 +25,13 @@ dependencies:
   get_it: ^8.2.0
   onesignal_flutter: ^5.2.5
   flutter_dotenv: ^5.1.0
+  # Network ecosystem packages
+  socket_io_client: ^2.0.3+1
+  network_info_plus: ^5.0.3
+  multicast_dns: ^0.3.2+6
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^3.5.6
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_test:

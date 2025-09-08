@@ -6,11 +6,14 @@ class WindowsMediaService {
   static WindowsMediaService? _instance;
   SMTCWindows? _smtc;
   bool _isInitialized = false;
+  bool _reinitializing = false;
   String? _lastTitle;
   String? _lastArtist;
   bool? _lastPlayingState;
   int? _lastPositionMs;
   int? _lastDurationMs;
+  Duration? _lastPosition;
+  Duration? _lastDuration;
   
   static WindowsMediaService get instance {
     _instance ??= WindowsMediaService._();
@@ -71,33 +74,59 @@ class WindowsMediaService {
       return;
     }
     
+    // Validate and sanitize input
+    final sanitizedTitle = _sanitizeString(title, 'Unknown Track');
+    final sanitizedArtist = _sanitizeString(artist, 'Unknown Artist');
+    final sanitizedAlbum = _sanitizeString(album ?? 'Vibra', 'Vibra');
+    
     // Only update if metadata actually changed
-    if (_lastTitle == title && _lastArtist == artist) {
+    if (_lastTitle == sanitizedTitle && _lastArtist == sanitizedArtist) {
       return;
     }
     
     try {
       await _smtc!.updateMetadata(
         MusicMetadata(
-          title: title,
-          artist: artist,
-          album: album ?? 'Vibra',
-          thumbnail: thumbnail,
+          title: sanitizedTitle,
+          artist: sanitizedArtist,
+          album: sanitizedAlbum,
+          thumbnail: thumbnail?.isNotEmpty == true ? thumbnail : null,
         ),
       );
       
-      _lastTitle = title;
-      _lastArtist = artist;
+      _lastTitle = sanitizedTitle;
+      _lastArtist = sanitizedArtist;
+      
+      // Small delay to prevent rapid updates
+      await Future.delayed(const Duration(milliseconds: 50));
       
       // Force SMTC to show by setting a valid state
       await _smtc!.setPlaybackStatus(PlaybackStatus.Paused);
       
-      print('🪟 Updated Windows SMTC metadata: $title by $artist');
+      print('🪟 Updated Windows SMTC metadata: $sanitizedTitle by $sanitizedArtist');
     } catch (e) {
       print('❌ Failed to update Windows SMTC metadata: $e');
-      // Try to reinitialize if update fails
-      await _reinitialize();
+      // Don't try to reinitialize on every error to avoid infinite loops
+      if (e.toString().contains('PanicException') || e.toString().contains('InvalidOperation')) {
+        print('🔄 Critical SMTC error, scheduling reinitialize...');
+        Future.delayed(const Duration(seconds: 1), () => _reinitialize());
+      }
     }
+  }
+  
+  // Helper method to sanitize strings for SMTC
+  String _sanitizeString(String? input, String fallback) {
+    if (input == null || input.trim().isEmpty) {
+      return fallback;
+    }
+    
+    // Limit length to prevent SMTC errors (Windows SMTC has limits)
+    final sanitized = input.trim();
+    if (sanitized.length > 100) {
+      return '${sanitized.substring(0, 97)}...';
+    }
+    
+    return sanitized;
   }
   
   Future<void> updatePlaybackStatus({
@@ -110,63 +139,128 @@ class WindowsMediaService {
       return;
     }
     
-    // Ensure we have valid duration
-    if (durationMs <= 0) {
-      durationMs = 1000; // Minimum 1 second to avoid errors
+    // Validate and sanitize input values
+    var validDurationMs = durationMs;
+    var validPositionMs = positionMs;
+    
+    // Ensure we have valid duration (minimum 1 second, maximum 24 hours)
+    if (validDurationMs <= 0) {
+      validDurationMs = 3 * 60 * 1000; // Default to 3 minutes
+      print('⚠️ Invalid duration $durationMs, using default ${validDurationMs}ms');
+    } else if (validDurationMs > 24 * 60 * 60 * 1000) {
+      validDurationMs = 24 * 60 * 60 * 1000; // Cap at 24 hours
+      print('⚠️ Duration too long $durationMs, capped to ${validDurationMs}ms');
     }
     
     // Ensure position is within bounds
-    positionMs = positionMs.clamp(0, durationMs);
+    validPositionMs = validPositionMs.clamp(0, validDurationMs);
+    
+    // Skip update if values haven't changed significantly (reduce SMTC spam)
+    if (_lastPlayingState == isPlaying && 
+        _lastPositionMs != null && 
+        _lastDurationMs != null &&
+        (validPositionMs - _lastPositionMs!).abs() < 2000 && // Less than 2 seconds difference
+        validDurationMs == _lastDurationMs) {
+      return;
+    }
     
     try {
-      // Always update playback status to ensure consistency
+      // Update playback status first (safer)
       await _smtc!.setPlaybackStatus(
         isPlaying ? PlaybackStatus.Playing : PlaybackStatus.Paused,
       );
       
-      // Update timeline with clamped values
+      // Small delay to prevent rapid successive calls
+      await Future.delayed(const Duration(milliseconds: 50));
+      
+      // Update timeline with validated values
       await _smtc!.updateTimeline(
         PlaybackTimeline(
           startTimeMs: 0,
-          endTimeMs: durationMs,
-          positionMs: positionMs,
+          endTimeMs: validDurationMs,
+          positionMs: validPositionMs,
           minSeekTimeMs: 0,
-          maxSeekTimeMs: durationMs,
+          maxSeekTimeMs: validDurationMs,
         ),
       );
       
       _lastPlayingState = isPlaying;
-      _lastPositionMs = positionMs;
-      _lastDurationMs = durationMs;
+      _lastPositionMs = validPositionMs;
+      _lastDurationMs = validDurationMs;
       
-      print('🪟 Updated Windows SMTC playback: ${isPlaying ? "Playing" : "Paused"} at ${positionMs}ms/${durationMs}ms');
+      print('🪟 Updated Windows SMTC playback: ${isPlaying ? "Playing" : "Paused"} at ${_formatTime(validPositionMs)}/${_formatTime(validDurationMs)}');
     } catch (e) {
       print('❌ Failed to update Windows SMTC playback status: $e');
-      // Try to reinitialize if update fails
-      await _reinitialize();
+      
+      // Handle specific error types
+      if (e.toString().contains('PanicException')) {
+        print('🔄 SMTC Panic detected, scheduling delayed reinitialize...');
+        // Don't reinitialize immediately to avoid infinite loops
+        Future.delayed(const Duration(seconds: 3), () {
+          if (!_isInitialized) {
+            _reinitialize();
+          }
+        });
+      } else {
+        // For other errors, try a simpler reinitialize
+        Future.delayed(const Duration(milliseconds: 500), () => _reinitialize());
+      }
     }
+  }
+  
+  // Helper to format time in mm:ss format
+  String _formatTime(int milliseconds) {
+    final seconds = milliseconds ~/ 1000;
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '${minutes}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
   
   Future<void> _reinitialize() async {
     print('🔄 Attempting to reinitialize Windows SMTC...');
-    _isInitialized = false;
-    _lastTitle = null;
-    _lastArtist = null;
-    _lastPlayingState = null;
-    _lastPositionMs = null;
-    _lastDurationMs = null;
     
-    if (_smtc != null) {
-      try {
-        await _smtc!.dispose();
-      } catch (e) {
-        print('⚠️ Error disposing SMTC during reinit: $e');
-      }
-      _smtc = null;
+    // Prevent multiple concurrent reinitializations
+    if (_reinitializing) {
+      print('🔄 Reinitialize already in progress, skipping...');
+      return;
     }
+    _reinitializing = true;
     
-    await Future.delayed(const Duration(milliseconds: 500));
-    await initialize();
+    try {
+      _isInitialized = false;
+      _lastTitle = null;
+      _lastArtist = null;
+      _lastPlayingState = null;
+      _lastPositionMs = null;
+      _lastDurationMs = null;
+      
+      // Safely dispose existing instance
+      if (_smtc != null) {
+        try {
+          await _smtc!.dispose();
+          print('🗑️ Disposed old SMTC instance');
+        } catch (e) {
+          print('⚠️ Error disposing SMTC during reinit: $e');
+        }
+        _smtc = null;
+      }
+      
+      // Wait longer before reinitializing to let Windows clean up
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // Try to reinitialize
+      await initialize();
+      
+      if (_isInitialized) {
+        print('✅ SMTC successfully reinitialized');
+      } else {
+        print('❌ SMTC reinitialize failed');
+      }
+    } catch (e) {
+      print('❌ Error during SMTC reinitialize: $e');
+    } finally {
+      _reinitializing = false;
+    }
   }
   
   Future<void> forceShow() async {

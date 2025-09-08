@@ -538,127 +538,10 @@ class _LikedSongsPageState extends State<LikedSongsPage>
   }
 
   Widget _buildPlaylistTile(UserPlaylist playlist) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.cardBackground,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => _openPlaylist(playlist),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Playlist thumbnail with hover effect
-                _PlaylistThumbnail(playlist: playlist),
-                const SizedBox(width: 16),
-                
-                // Playlist info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        playlist.name,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'CascadiaCode',
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.access_time_rounded,
-                            color: AppColors.textMuted,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Added ${_formatDate(playlist.createdAt)}',
-                            style: const TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 13,
-                              fontFamily: 'CascadiaCode',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.primaryLinearGradient,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.play_circle_filled,
-                                  color: AppColors.textPrimary,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  'YouTube',
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: 'CascadiaCode',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // More options button with hover effect
-                _HoverableIconButton(
-                  onPressed: () => _showPlaylistOptions(playlist),
-                  icon: Icons.more_vert_rounded,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return _InteractivePlaylistTile(
+      playlist: playlist,
+      onTap: () => _openPlaylist(playlist),
+      onOptions: () => _showPlaylistOptions(playlist),
     );
   }
 
@@ -677,28 +560,12 @@ class _LikedSongsPageState extends State<LikedSongsPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.surface.withOpacity(0.8),
-                    AppColors.cardBackground.withOpacity(0.6),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.cardBackground,
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                Icons.favorite_border_rounded,
-                size: 64,
-                color: AppColors.textMuted,
-              ),
+            Icon(
+              Icons.favorite_border,
+              size: 72,
+              color: AppColors.textMuted,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             const Text(
               'No liked playlists yet',
               style: TextStyle(
@@ -708,11 +575,11 @@ class _LikedSongsPageState extends State<LikedSongsPage>
                 fontFamily: 'CascadiaCode',
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 32),
               child: Text(
-                'Like playlists from the home page\nto see them here',
+                'Like playlists from the home page to see them here',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 16,
@@ -728,198 +595,33 @@ class _LikedSongsPageState extends State<LikedSongsPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       itemCount: _likedPlaylists.length,
+      physics: const BouncingScrollPhysics(),
+      cacheExtent: 1000,
       itemBuilder: (context, index) {
         final playlist = _likedPlaylists[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.cardBackground.withOpacity(0.8),
-                AppColors.surface.withOpacity(0.6),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.cardBackground,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildLikedPlaylistTile(playlist),
+            if (index < _likedPlaylists.length - 1)
+              const Divider(
+                indent: 88,
+                color: AppColors.cardBackground,
+                height: 1,
               ),
-            ],
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  playlist.thumbnailUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryLinearGradient,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.playlist_play_rounded,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            title: Text(
-              playlist.title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'CascadiaCode',
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  playlist.channelName,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                    fontFamily: 'CascadiaCode',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: playlist.source == 'queue' 
-                            ? Colors.purple.withOpacity(0.2)
-                            : AppColors.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (playlist.source == 'queue')
-                            const Icon(
-                              Icons.queue_music_rounded,
-                              color: Colors.purple,
-                              size: 12,
-                            ),
-                          if (playlist.source == 'queue') const SizedBox(width: 4),
-                          Text(
-                            playlist.source == 'trending' 
-                                ? 'Trending' 
-                                : playlist.source == 'queue'
-                                    ? 'Queue'
-                                    : 'Custom',
-                            style: TextStyle(
-                              color: playlist.source == 'queue' 
-                                  ? Colors.purple 
-                                  : AppColors.primary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'CascadiaCode',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        _formatDate(playlist.likedAt),
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 11,
-                          fontFamily: 'CascadiaCode',
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (playlist.source == 'queue') ...[
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          '${QueuePlaylistService.getQueuePlaylistSongs(playlist.id).length} songs',
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 11,
-                            fontFamily: 'CascadiaCode',
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-            trailing: PopupMenuButton<String>(
-              color: AppColors.surface,
-              icon: const Icon(
-                Icons.more_vert_rounded,
-                color: AppColors.textSecondary,
-              ),
-              onSelected: (value) {
-                if (value == 'unlike') {
-                  _unlikePlaylist(playlist);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'unlike',
-                  child: Row(
-                    children: [
-                      Icon(Icons.favorite_border_rounded, color: AppColors.textPrimary),
-                      SizedBox(width: 12),
-                      Text(
-                        'Unlike',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontFamily: 'CascadiaCode',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            onTap: () => _openLikedPlaylist(playlist),
-          ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildLikedPlaylistTile(LikedPlaylist playlist) {
+    return _InteractiveLikedPlaylistTile(
+      playlist: playlist,
+      onTap: () => _openLikedPlaylist(playlist),
+      onUnlike: () => _unlikePlaylist(playlist),
     );
   }
 
@@ -1169,183 +871,14 @@ class _LikedSongsPageState extends State<LikedSongsPage>
             final isDownloading = _downloadService.isDownloading(track);
             final progress = _downloadService.getDownloadProgress(track);
             
-            return GestureDetector(
+            return _InteractiveSongTile(
+              track: track,
+              isDownloaded: isDownloaded,
+              isDownloading: isDownloading,
+              progress: progress,
               onTap: () => _playTrack(track),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                height: 68,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: Row(
-                  children: [
-                    // Album artwork with download indicator overlay
-                    Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: track.thumbnail.isNotEmpty
-                              ? Image.network(
-                                  track.thumbnail,
-                                  width: 56,
-                                  height: 56,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: 112,
-                                  cacheHeight: 112,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      width: 56,
-                                      height: 56,
-                                      color: AppColors.surface,
-                                      child: const Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      width: 56,
-                                      height: 56,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surface,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.music_note,
-                                        color: AppColors.textMuted,
-                                        size: 24,
-                                      ),
-                                    );
-                                  },
-                                )
-                              : Container(
-                                  width: 56,
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surface,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.music_note,
-                                    color: AppColors.textMuted,
-                                    size: 24,
-                                  ),
-                                ),
-                        ),
-                        // Download status indicator
-                        if (isDownloaded)
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                borderRadius: BorderRadius.circular(9),
-                                border: Border.all(color: AppColors.background, width: 1),
-                              ),
-                              child: const Icon(
-                                Icons.download_done,
-                                color: Colors.white,
-                                size: 12,
-                              ),
-                            ),
-                          )
-                        else if (isDownloading)
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(9),
-                                border: Border.all(color: AppColors.background, width: 1),
-                              ),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 10,
-                                  height: 10,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    value: progress > 0 ? progress : null,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-            const SizedBox(width: 16),
-            // Song info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    track.title,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: 'CascadiaCode',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    track.artist,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: 'CascadiaCode',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            // Duration
-            Text(
-              track.durationString,
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                fontFamily: 'CascadiaCode',
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Unlike option
-            GestureDetector(
-              onTap: () => _unlikeSong(track),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(
-                  Icons.favorite,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+              onUnlike: () => _unlikeSong(track),
+            );
           },
         );
       },
@@ -3399,5 +2932,1033 @@ class _QueuePlaylistDetailsPageState extends State<QueuePlaylistDetailsPage> {
     } else {
       return 'Just now';
     }
+  }
+}
+
+// Interactive Song Tile widget with Windows hover effects
+class _InteractiveSongTile extends StatefulWidget {
+  final MusicTrack track;
+  final bool isDownloaded;
+  final bool isDownloading;
+  final double? progress;
+  final VoidCallback onTap;
+  final VoidCallback onUnlike;
+
+  const _InteractiveSongTile({
+    required this.track,
+    required this.isDownloaded,
+    required this.isDownloading,
+    required this.progress,
+    required this.onTap,
+    required this.onUnlike,
+  });
+
+  @override
+  State<_InteractiveSongTile> createState() => _InteractiveSongTileState();
+}
+
+class _InteractiveSongTileState extends State<_InteractiveSongTile>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isHeartHovered = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<Color?> _colorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.02,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    _colorAnimation = ColorTween(
+      begin: Colors.transparent,
+      end: AppColors.surface.withOpacity(0.6),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onHoverChanged(bool isHovered) {
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      setState(() {
+        _isHovered = isHovered;
+      });
+      
+      if (isHovered) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    }
+  }
+
+  void _onHeartHoverChanged(bool isHovered) {
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      setState(() {
+        _isHeartHovered = isHovered;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return MouseRegion(
+          cursor: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+              ? SystemMouseCursors.click
+              : MouseCursor.defer,
+          onEnter: (_) => _onHoverChanged(true),
+          onExit: (_) => _onHoverChanged(false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Container(
+                height: 68,
+                margin: _isHovered 
+                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2)
+                    : const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _colorAnimation.value,
+                  borderRadius: _isHovered 
+                      ? BorderRadius.circular(12)
+                      : BorderRadius.circular(0),
+                  border: _isHovered
+                      ? Border.all(
+                          color: AppColors.primary.withOpacity(0.3),
+                          width: 1,
+                        )
+                      : null,
+                  boxShadow: _isHovered
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    // Album artwork with download indicator overlay
+                    _buildAlbumArtwork(),
+                    const SizedBox(width: 16),
+                    // Song info
+                    Expanded(
+                      child: _buildSongInfo(),
+                    ),
+                    // Duration
+                    _buildDuration(),
+                    const SizedBox(width: 16),
+                    // Unlike option with hover effect
+                    _buildUnlikeButton(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAlbumArtwork() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(_isHovered ? 12 : 8),
+            child: widget.track.thumbnail.isNotEmpty
+                ? Image.network(
+                    widget.track.thumbnail,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    cacheWidth: 112,
+                    cacheHeight: 112,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        width: 56,
+                        height: 56,
+                        color: AppColors.surface,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildDefaultAlbumArt();
+                    },
+                  )
+                : _buildDefaultAlbumArt(),
+          ),
+          // Download status indicator
+          if (widget.isDownloaded)
+            Positioned(
+              bottom: 2,
+              right: 2,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: AppColors.background, width: 1),
+                ),
+                child: const Icon(
+                  Icons.download_done,
+                  color: Colors.white,
+                  size: 12,
+                ),
+              ),
+            )
+          else if (widget.isDownloading)
+            Positioned(
+              bottom: 2,
+              right: 2,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: AppColors.background, width: 1),
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      value: widget.progress != null && widget.progress! > 0 ? widget.progress : null,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // Play overlay on hover
+          if (_isHovered && (Platform.isWindows || Platform.isMacOS || Platform.isLinux))
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultAlbumArt() {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(_isHovered ? 12 : 8),
+      ),
+      child: const Icon(
+        Icons.music_note,
+        color: AppColors.textMuted,
+        size: 24,
+      ),
+    );
+  }
+
+  Widget _buildSongInfo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: TextStyle(
+            color: _isHovered ? AppColors.primary : AppColors.textPrimary,
+            fontSize: 16,
+            fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+            fontFamily: 'CascadiaCode',
+          ),
+          child: Text(
+            widget.track.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(height: 2),
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: TextStyle(
+            color: _isHovered ? AppColors.textPrimary : AppColors.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            fontFamily: 'CascadiaCode',
+          ),
+          child: Text(
+            widget.track.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDuration() {
+    return AnimatedDefaultTextStyle(
+      duration: const Duration(milliseconds: 200),
+      style: TextStyle(
+        color: _isHovered ? AppColors.textPrimary : AppColors.textMuted,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        fontFamily: 'CascadiaCode',
+      ),
+      child: Text(widget.track.durationString),
+    );
+  }
+
+  Widget _buildUnlikeButton() {
+    return MouseRegion(
+      cursor: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
+      onEnter: (_) => _onHeartHoverChanged(true),
+      onExit: (_) => _onHeartHoverChanged(false),
+      child: GestureDetector(
+        onTap: widget.onUnlike,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isHeartHovered
+                ? AppColors.primary.withOpacity(0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 150),
+            scale: _isHeartHovered ? 1.2 : 1.0,
+            child: Icon(
+              Icons.favorite,
+              color: _isHeartHovered ? AppColors.error : AppColors.primary,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Interactive Playlist Tile widget with Windows hover effects
+class _InteractivePlaylistTile extends StatefulWidget {
+  final UserPlaylist playlist;
+  final VoidCallback onTap;
+  final VoidCallback onOptions;
+
+  const _InteractivePlaylistTile({
+    required this.playlist,
+    required this.onTap,
+    required this.onOptions,
+  });
+
+  @override
+  State<_InteractivePlaylistTile> createState() => _InteractivePlaylistTileState();
+}
+
+class _InteractivePlaylistTileState extends State<_InteractivePlaylistTile>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  late AnimationController _animationController;
+  late Animation<double> _elevationAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _elevationAnimation = Tween<double>(
+      begin: 8.0,
+      end: 16.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.03,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onHoverChanged(bool isHovered) {
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      setState(() {
+        _isHovered = isHovered;
+      });
+      
+      if (isHovered) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays > 0) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minutes ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return MouseRegion(
+          cursor: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+              ? SystemMouseCursors.click
+              : MouseCursor.defer,
+          onEnter: (_) => _onHoverChanged(true),
+          onExit: (_) => _onHoverChanged(false),
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _isHovered 
+                      ? AppColors.primary.withOpacity(0.5)
+                      : AppColors.cardBackground,
+                  width: _isHovered ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _isHovered 
+                        ? AppColors.primary.withOpacity(0.3)
+                        : Colors.black.withOpacity(0.2),
+                    blurRadius: _elevationAnimation.value,
+                    offset: Offset(0, _elevationAnimation.value / 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: widget.onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        // Playlist thumbnail with enhanced hover effect
+                        _buildPlaylistThumbnail(),
+                        const SizedBox(width: 16),
+                        
+                        // Playlist info
+                        Expanded(
+                          child: _buildPlaylistInfo(),
+                        ),
+                        
+                        // More options button with hover effect
+                        _HoverableIconButton(
+                          onPressed: widget.onOptions,
+                          icon: Icons.more_vert_rounded,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaylistThumbnail() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      transform: _isHovered 
+          ? (Matrix4.identity()..rotateY(0.1))
+          : Matrix4.identity(),
+      child: Stack(
+        children: [
+          _PlaylistThumbnail(playlist: widget.playlist),
+          // Play overlay on hover
+          if (_isHovered && (Platform.isWindows || Platform.isMacOS || Platform.isLinux))
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaylistInfo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: TextStyle(
+            color: _isHovered ? AppColors.primary : AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: _isHovered ? FontWeight.w700 : FontWeight.bold,
+            fontFamily: 'CascadiaCode',
+          ),
+          child: Text(
+            widget.playlist.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.access_time_rounded,
+                color: _isHovered ? AppColors.primary : AppColors.textMuted,
+                size: 14,
+              ),
+            ),
+            const SizedBox(width: 4),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                color: _isHovered ? AppColors.textPrimary : AppColors.textMuted,
+                fontSize: 13,
+                fontFamily: 'CascadiaCode',
+              ),
+              child: Text('Added ${_formatDate(widget.playlist.createdAt)}'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                gradient: _isHovered 
+                    ? const LinearGradient(
+                        colors: [
+                          Color(0xFF8B5CF6), 
+                          Color(0xFFEC4899),
+                        ],
+                      )
+                    : AppColors.primaryLinearGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: (_isHovered ? const Color(0xFF8B5CF6) : AppColors.primary)
+                        .withOpacity(0.4),
+                    blurRadius: _isHovered ? 8 : 4,
+                    offset: Offset(0, _isHovered ? 4 : 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.play_circle_filled,
+                    color: AppColors.textPrimary,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'YouTube',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'CascadiaCode',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// Interactive Liked Playlist Tile widget with Windows hover effects  
+class _InteractiveLikedPlaylistTile extends StatefulWidget {
+  final LikedPlaylist playlist;
+  final VoidCallback onTap;
+  final VoidCallback onUnlike;
+
+  const _InteractiveLikedPlaylistTile({
+    required this.playlist,
+    required this.onTap,
+    required this.onUnlike,
+  });
+
+  @override
+  State<_InteractiveLikedPlaylistTile> createState() => _InteractiveLikedPlaylistTileState();
+}
+
+class _InteractiveLikedPlaylistTileState extends State<_InteractiveLikedPlaylistTile>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isHeartHovered = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<Color?> _colorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.02,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    _colorAnimation = ColorTween(
+      begin: Colors.transparent,
+      end: AppColors.surface.withOpacity(0.6),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onHoverChanged(bool isHovered) {
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      setState(() {
+        _isHovered = isHovered;
+      });
+      
+      if (isHovered) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    }
+  }
+
+  void _onHeartHoverChanged(bool isHovered) {
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      setState(() {
+        _isHeartHovered = isHovered;
+      });
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays > 0) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minutes ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return MouseRegion(
+          cursor: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+              ? SystemMouseCursors.click
+              : MouseCursor.defer,
+          onEnter: (_) => _onHoverChanged(true),
+          onExit: (_) => _onHoverChanged(false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Container(
+                height: 72,
+                margin: _isHovered 
+                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2)
+                    : const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _colorAnimation.value,
+                  borderRadius: _isHovered 
+                      ? BorderRadius.circular(12)
+                      : BorderRadius.circular(0),
+                  border: _isHovered
+                      ? Border.all(
+                          color: widget.playlist.source == 'queue'
+                              ? Colors.purple.withOpacity(0.3)
+                              : AppColors.primary.withOpacity(0.3),
+                          width: 1,
+                        )
+                      : null,
+                  boxShadow: _isHovered
+                      ? [
+                          BoxShadow(
+                            color: (widget.playlist.source == 'queue' 
+                                ? Colors.purple 
+                                : AppColors.primary).withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    // Playlist thumbnail
+                    _buildPlaylistThumbnail(),
+                    const SizedBox(width: 16),
+                    // Playlist info
+                    Expanded(
+                      child: _buildPlaylistInfo(),
+                    ),
+                    // Unlike option with hover effect
+                    _buildUnlikeButton(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaylistThumbnail() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(_isHovered ? 12 : 8),
+            child: widget.playlist.thumbnailUrl.isNotEmpty
+                ? Image.network(
+                    widget.playlist.thumbnailUrl,
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        width: 60,
+                        height: 60,
+                        color: AppColors.surface,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildDefaultPlaylistArt();
+                    },
+                  )
+                : _buildDefaultPlaylistArt(),
+          ),
+          // Play overlay on hover
+          if (_isHovered && (Platform.isWindows || Platform.isMacOS || Platform.isLinux))
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultPlaylistArt() {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        gradient: widget.playlist.source == 'queue'
+            ? const LinearGradient(
+                colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+              )
+            : AppColors.primaryLinearGradient,
+        borderRadius: BorderRadius.circular(_isHovered ? 12 : 8),
+      ),
+      child: Icon(
+        widget.playlist.source == 'queue'
+            ? Icons.queue_music_rounded
+            : Icons.playlist_play_rounded,
+        color: Colors.white,
+        size: 30,
+      ),
+    );
+  }
+
+  Widget _buildPlaylistInfo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Title
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: TextStyle(
+            color: _isHovered 
+                ? (widget.playlist.source == 'queue' ? Colors.purple : AppColors.primary)
+                : AppColors.textPrimary,
+            fontSize: 16,
+            fontWeight: _isHovered ? FontWeight.w600 : FontWeight.w500,
+            fontFamily: 'CascadiaCode',
+          ),
+          child: Text(
+            widget.playlist.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(height: 2),
+        // Channel name
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: TextStyle(
+            color: _isHovered ? AppColors.textPrimary : AppColors.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            fontFamily: 'CascadiaCode',
+          ),
+          child: Text(
+            widget.playlist.channelName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Source badge and date info
+        Row(
+          children: [
+            // Source badge
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: widget.playlist.source == 'queue' 
+                    ? (_isHovered ? Colors.purple.withOpacity(0.3) : Colors.purple.withOpacity(0.2))
+                    : (_isHovered ? AppColors.primary.withOpacity(0.3) : AppColors.primary.withOpacity(0.2)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.playlist.source == 'queue')
+                    Icon(
+                      Icons.queue_music_rounded,
+                      color: _isHovered ? Colors.purple.withOpacity(0.9) : Colors.purple,
+                      size: 12,
+                    ),
+                  if (widget.playlist.source == 'queue') const SizedBox(width: 4),
+                  Text(
+                    widget.playlist.source == 'trending' 
+                        ? 'Trending' 
+                        : widget.playlist.source == 'queue'
+                            ? 'Queue'
+                            : 'Custom',
+                    style: TextStyle(
+                      color: widget.playlist.source == 'queue' 
+                          ? (_isHovered ? Colors.purple.withOpacity(0.9) : Colors.purple)
+                          : (_isHovered ? AppColors.primary.withOpacity(0.9) : AppColors.primary),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'CascadiaCode',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Date
+            Flexible(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: TextStyle(
+                  color: _isHovered ? AppColors.textPrimary : AppColors.textMuted,
+                  fontSize: 11,
+                  fontFamily: 'CascadiaCode',
+                ),
+                child: Text(
+                  _formatDate(widget.playlist.likedAt),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            // Queue song count
+            if (widget.playlist.source == 'queue') ...[
+              const SizedBox(width: 8),
+              Flexible(
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    color: _isHovered ? AppColors.textPrimary : AppColors.textMuted,
+                    fontSize: 11,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                  child: Text(
+                    '${QueuePlaylistService.getQueuePlaylistSongs(widget.playlist.id).length} songs',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUnlikeButton() {
+    return MouseRegion(
+      cursor: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
+      onEnter: (_) => _onHeartHoverChanged(true),
+      onExit: (_) => _onHeartHoverChanged(false),
+      child: GestureDetector(
+        onTap: widget.onUnlike,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isHeartHovered
+                ? AppColors.error.withOpacity(0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 150),
+            scale: _isHeartHovered ? 1.2 : 1.0,
+            child: Icon(
+              Icons.favorite,
+              color: _isHeartHovered 
+                  ? AppColors.error 
+                  : (widget.playlist.source == 'queue' ? Colors.purple : AppColors.primary),
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,11 +1,64 @@
 import 'package:flutter/material.dart';
 import 'components/home_page.dart';
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/onesignal_service.dart';
 import 'utils/app_colors.dart';
 import 'package:flutter/services.dart';
+
+/// Request network permissions for local network access and server functionality
+Future<void> _requestNetworkPermissions() async {
+  try {
+    if (Platform.isWindows) {
+      print('🔐 Requesting Windows network permissions...');
+      
+      // Import the Windows network permissions helper
+      final hasPermissions = await _checkWindowsNetworkPermissions();
+      
+      if (hasPermissions) {
+        print('✅ Windows network permissions available');
+      } else {
+        print('⚠️ Limited network access detected');
+        print('ℹ️ Some ecosystem features may be limited');
+        print('💡 Check Windows Firewall and antivirus settings');
+      }
+    } else if (Platform.isAndroid) {
+      // Android network permissions are auto-granted for INTERNET permission
+      print('ℹ️ Android network permissions are automatically granted');
+      print('✅ Ready for local network communication');
+    }
+  } catch (e) {
+    print('⚠️ Could not check network permissions: $e');
+  }
+}
+
+/// Check Windows network permissions without importing the service
+Future<bool> _checkWindowsNetworkPermissions() async {
+  try {
+    // Test basic network capability
+    final server = await HttpServer.bind('127.0.0.1', 0);
+    final port = server.port;
+    await server.close();
+    
+    print('✅ Basic network binding test passed (port $port)');
+    
+    // Test network interface access
+    final interfaces = await NetworkInterface.list();
+    final networkCount = interfaces.where((i) => 
+      i.addresses.any((a) => 
+        a.type == InternetAddressType.IPv4 && !a.isLoopback
+      )
+    ).length;
+    
+    print('ℹ️ Found $networkCount network interfaces');
+    
+    return networkCount > 0;
+  } catch (e) {
+    print('❌ Network permission test failed: $e');
+    return false;
+  }
+}
 
 /// Request battery optimization exemption to prevent the app from being killed
 /// when running in the background for music playback
@@ -78,6 +131,9 @@ void main() async {
       
       // Request battery optimization exemption for background music playback
       await _requestBatteryOptimizationExemption();
+      
+      // Request network permissions for ecosystem functionality  
+      await _requestNetworkPermissions();
       
       // Initialize background playback optimizations
       await _initializeBackgroundPlayback();
