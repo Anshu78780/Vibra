@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../models/music_model.dart';
 import '../services/download_service.dart';
 import '../controllers/music_player_controller.dart';
@@ -16,6 +17,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
   List<MusicTrack> _downloadedTracks = [];
   Map<String, double> _downloadProgress = {};
   bool _isLoading = true;
+  bool _isInitialLoad = true;
+  StreamSubscription? _downloadProgressSubscription;
 
   @override
   void initState() {
@@ -24,26 +27,68 @@ class _DownloadsPageState extends State<DownloadsPage> {
     _setupDownloadProgressListener();
   }
 
+  @override
+  void dispose() {
+    _downloadProgressSubscription?.cancel();
+    super.dispose();
+  }
+
   void _setupDownloadProgressListener() {
-    _downloadService.downloadProgressStream.listen((progress) {
-      setState(() {
-        _downloadProgress = progress;
-      });
+    _downloadProgressSubscription = _downloadService.downloadProgressStream.listen((progress) {
+      if (mounted) {
+        setState(() {
+          _downloadProgress = progress;
+        });
+      }
     });
   }
 
   Future<void> _loadDownloadedTracks() async {
     try {
       final tracks = await _downloadService.getDownloadedTracks();
-      setState(() {
-        _downloadedTracks = tracks;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _downloadedTracks = tracks;
+          _isLoading = false;
+        });
+        
+        // Show refresh feedback only if not the initial load
+        if (!_isInitialLoad) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Downloads refreshed • ${tracks.length} songs found',
+                style: const TextStyle(fontFamily: 'CascadiaCode'),
+              ),
+              backgroundColor: const Color(0xFF1C1C1E),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        _isInitialLoad = false;
+      }
     } catch (e) {
       print('Error loading downloaded tracks: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        if (!_isInitialLoad) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to refresh downloads: $e',
+                style: const TextStyle(fontFamily: 'CascadiaCode'),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        _isInitialLoad = false;
+      }
     }
   }
 
@@ -118,56 +163,83 @@ class _DownloadsPageState extends State<DownloadsPage> {
         centerTitle: true,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadDownloadedTracks,
+            tooltip: 'Refresh Downloads',
+          ),
           if (_downloadedTracks.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep, color: Colors.white),
               onPressed: _showClearAllDialog,
+              tooltip: 'Clear All Downloads',
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
-              ),
-            )
-          : _downloadedTracks.isEmpty
-              ? _buildEmptyState()
-              : _buildDownloadsList(),
+      body: RefreshIndicator(
+        onRefresh: _loadDownloadedTracks,
+        backgroundColor: const Color(0xFF1C1C1E),
+        color: const Color(0xFF6366F1),
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                ),
+              )
+            : _downloadedTracks.isEmpty
+                ? _buildEmptyState()
+                : _buildDownloadsList(),
+      ),
       bottomNavigationBar: const MiniMusicPlayer(),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.download_outlined,
-            size: 80,
-            color: Colors.grey[600],
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Container(
+        height: MediaQuery.of(context).size.height - 200, // Account for AppBar and bottom nav
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.download_outlined,
+                size: 80,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No Downloaded Songs',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Download songs to listen offline',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Pull down to refresh',
+                style: TextStyle(
+                  color: Colors.grey[700],
+                  fontSize: 12,
+                  fontFamily: 'CascadiaCode',
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'No Downloaded Songs',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'CascadiaCode',
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Download songs to listen offline',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-              fontFamily: 'CascadiaCode',
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -232,12 +304,58 @@ class _DownloadsPageState extends State<DownloadsPage> {
                             valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
                             backgroundColor: Colors.grey[700],
                           )
-                        : const Icon(
-                            Icons.music_note,
-                            color: Color(0xFF6366F1),
-                            size: 28,
-                    ),
-            ),
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: track.thumbnail.isNotEmpty
+                                ? Image.network(
+                                    track.thumbnail,
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        width: 56,
+                                        height: 56,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF2C2C2E),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(
+                                          Icons.music_note,
+                                          color: Color(0xFF6366F1),
+                                          size: 28,
+                                        ),
+                                      );
+                                    },
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        width: 56,
+                                        height: 56,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF2C2C2E),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            value: loadingProgress.expectedTotalBytes != null
+                                                ? loadingProgress.cumulativeBytesLoaded /
+                                                    loadingProgress.expectedTotalBytes!
+                                                : null,
+                                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : const Icon(
+                                    Icons.music_note,
+                                    color: Color(0xFF6366F1),
+                                    size: 28,
+                                  ),
+                          ),
+                  ),
             title: Text(
               track.title,
               style: const TextStyle(

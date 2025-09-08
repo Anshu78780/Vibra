@@ -397,13 +397,23 @@ class _SearchPageState extends State<SearchPage> {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-          child: Text(
-            'Search suggestions',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-              fontFamily: 'CascadiaCode',
-            ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.youtube_searched_for,
+                color: AppColors.primary,
+                size: 16,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'YouTube suggestions',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 14,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(

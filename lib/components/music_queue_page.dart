@@ -8,6 +8,8 @@ import '../services/playlist_songs_service.dart';
 import '../services/cache_service.dart';
 import '../controllers/music_player_controller.dart';
 import '../services/liked_songs_service.dart';
+import '../services/liked_playlists_service.dart';
+import '../services/queue_playlist_service.dart';
 import 'mini_music_player.dart';
 
 class MusicQueuePage extends StatefulWidget {
@@ -35,6 +37,12 @@ class _MusicQueuePageState extends State<MusicQueuePage> {
     _fetchMusicData();
     _fetchTrendingPlaylists();
     _logCacheStatus();
+    _initLikedPlaylistsService();
+  }
+
+  Future<void> _initLikedPlaylistsService() async {
+    await LikedPlaylistsService.loadLikedPlaylists();
+    await QueuePlaylistService.loadQueuePlaylists();
   }
 
   /// Log cache status for debugging
@@ -1408,6 +1416,56 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
     }
   }
 
+  Future<void> _togglePlaylistLike() async {
+    try {
+      final isNowLiked = await LikedPlaylistsService.togglePlaylistLike(
+        playlistId: widget.playlist.playlistId,
+        title: widget.playlist.title,
+        channelName: widget.playlist.description.isNotEmpty 
+            ? widget.playlist.description 
+            : widget.playlist.section,
+        playlistUrl: widget.playlist.url,
+        thumbnailUrl: widget.playlist.thumbnail,
+        source: 'trending',
+      );
+      
+      if (mounted) {
+        setState(() {
+          // Trigger UI update
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isNowLiked 
+                  ? 'Added "${widget.playlist.title}" to liked playlists'
+                  : 'Removed "${widget.playlist.title}" from liked playlists',
+              style: const TextStyle(fontFamily: 'CascadiaCode'),
+            ),
+            backgroundColor: const Color(0xFF1C1C1E),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update playlist: $e',
+              style: const TextStyle(fontFamily: 'CascadiaCode'),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -1496,6 +1554,29 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                           ),
                         ),
                     ],
+                  ),
+                ),
+                // Like button
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  child: IconButton(
+                    onPressed: () => _togglePlaylistLike(),
+                    icon: Icon(
+                      LikedPlaylistsService.isPlaylistLiked(widget.playlist.playlistId)
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: LikedPlaylistsService.isPlaylistLiked(widget.playlist.playlistId)
+                          ? const Color(0xFF6366F1)
+                          : Colors.white,
+                      size: 28,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF2A2A2E).withOpacity(0.8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                    ),
                   ),
                 ),
               ],

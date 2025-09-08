@@ -1,5 +1,7 @@
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/music_model.dart';
 
 class YoutubeSearchService {
@@ -32,16 +34,34 @@ class YoutubeSearchService {
       
       // Convert videos to MusicTrack objects
       final musicTracks = <MusicTrack>[];
-      for (final video in searchResults) {
+      debugPrint('🔄 Converting ${searchResults.length} videos to music tracks...');
+      
+      for (int i = 0; i < searchResults.length; i++) {
+        final video = searchResults[i];
         try {
-          // Filter out videos that are likely not music
-          if (_isLikelyMusicVideo(video)) {
-            final track = await _createTrackFromVideo(video);
-            musicTracks.add(track);
-          }
+          debugPrint('📹 Processing video ${i + 1}/${searchResults.length}: ${video.title}');
+          
+          // Create track from all videos (removed music filter to show all results)
+          final track = await _createTrackFromVideo(video);
+          musicTracks.add(track);
+          debugPrint('✅ Added track: ${track.title} - ${track.artist}');
         } catch (e) {
-          debugPrint('⚠️ Skipping video ${video.title}: $e');
-          continue;
+          debugPrint('⚠️ Error with video "${video.title}": $e');
+          debugPrint('🔄 Trying basic track creation...');
+          // Still try to create a basic track with error handling
+          try {
+            final basicTrack = _createBasicTrackFromVideo(video);
+            if (basicTrack != null) {
+              musicTracks.add(basicTrack);
+              debugPrint('✅ Added basic track: ${basicTrack.title}');
+            } else {
+              debugPrint('❌ Basic track creation returned null');
+            }
+          } catch (e2) {
+            debugPrint('❌ Failed to create basic track: $e2');
+            debugPrint('🚫 Skipping this video completely');
+            continue;
+          }
         }
       }
       
@@ -59,95 +79,171 @@ class YoutubeSearchService {
     }
   }
 
-  /// Check if a video is likely to be a music video
-  static bool _isLikelyMusicVideo(Video video) {
-    final title = video.title.toLowerCase();
-    final author = video.author.toLowerCase();
-    final duration = video.duration;
-    
-    // Skip videos that are too short (less than 30 seconds) or too long (more than 20 minutes)
-    if (duration != null) {
-      final seconds = duration.inSeconds;
-      if (seconds < 30 || seconds > 1200) {
-        return false;
-      }
-    }
-    
-    // Skip videos with typical non-music indicators
-    final nonMusicIndicators = [
-      'tutorial', 'how to', 'review', 'reaction', 'gameplay', 'walkthrough',
-      'interview', 'news', 'documentary', 'trailer', 'commercial', 'ad',
-      'unboxing', 'vlog', 'podcast', 'lecture', 'stream', 'live stream',
-      'compilation', 'best of', 'top 10', 'funny', 'prank', 'meme'
-    ];
-    
-    for (final indicator in nonMusicIndicators) {
-      if (title.contains(indicator)) {
-        return false;
-      }
-    }
-    
-    // Prefer videos from music-related channels
-    final musicChannelIndicators = [
-      'vevo', 'topic', 'music', 'records', 'entertainment', 'official',
-      'audio', 'sound', 'beats', 'productions'
-    ];
-    
-    bool isFromMusicChannel = false;
-    for (final indicator in musicChannelIndicators) {
-      if (author.contains(indicator)) {
-        isFromMusicChannel = true;
-        break;
-      }
-    }
-    
-    // Prefer videos with music-related terms in title
-    final musicTitleIndicators = [
-      'official', 'audio', 'music video', 'mv', 'song', 'track', 'single',
-      'album', 'feat', 'ft', 'remix', 'cover', 'acoustic', 'live', 'unplugged'
-    ];
-    
-    bool hasMusicTitle = false;
-    for (final indicator in musicTitleIndicators) {
-      if (title.contains(indicator)) {
-        hasMusicTitle = true;
-        break;
-      }
-    }
-    
-    // Accept if it's from a music channel OR has music-related title terms
-    return isFromMusicChannel || hasMusicTitle;
-  }
-
   /// Create a MusicTrack from a YouTube Video
   static Future<MusicTrack> _createTrackFromVideo(Video video) async {
-    // Extract artist and title from video title
-    final titleParts = _extractArtistAndTitle(video.title);
-    final artist = titleParts['artist'] ?? video.author;
-    final title = titleParts['title'] ?? video.title;
-    
-    return MusicTrack(
-      id: video.id.value,
-      title: title,
-      artist: artist,
-      album: '', // Not available from search results
-      duration: video.duration?.inSeconds ?? 0,
-      durationString: _formatDuration(video.duration),
-      webpageUrl: 'https://www.youtube.com/watch?v=${video.id.value}',
-      thumbnail: video.thumbnails.mediumResUrl,
-      // Required fields with sensible defaults
-      availability: 'public',
-      category: 'Music',
-      description: video.description,
-      extractor: 'youtube_explode_dart',
-      liveStatus: 'not_live',
-      posterImage: video.thumbnails.highResUrl,
-      source: 'YouTube',
-      uploader: video.author,
-      // Optional fields
-      viewCount: video.engagement.viewCount,
-      uploadDate: video.uploadDate?.toIso8601String(),
-    );
+    try {
+      // Extract artist and title from video title
+      final titleParts = _extractArtistAndTitle(video.title);
+      final artist = titleParts['artist'] ?? video.author;
+      final title = titleParts['title'] ?? video.title;
+      
+      // Safely get thumbnail URLs
+      String thumbnailUrl = '';
+      String posterUrl = '';
+      try {
+        final thumbnails = video.thumbnails;
+        thumbnailUrl = thumbnails.mediumResUrl;
+        posterUrl = thumbnails.highResUrl;
+      } catch (e) {
+        debugPrint('⚠️ Error accessing thumbnails: $e');
+        // Use fallback thumbnail URLs
+        try {
+          final thumbnails = video.thumbnails;
+          thumbnailUrl = thumbnails.lowResUrl.isNotEmpty ? thumbnails.lowResUrl : 
+                        'https://img.youtube.com/vi/${video.id.value}/mqdefault.jpg';
+          posterUrl = thumbnails.standardResUrl.isNotEmpty ? thumbnails.standardResUrl : 
+                     'https://img.youtube.com/vi/${video.id.value}/hqdefault.jpg';
+        } catch (e2) {
+          debugPrint('⚠️ Error accessing fallback thumbnails: $e2');
+          thumbnailUrl = 'https://img.youtube.com/vi/${video.id.value}/mqdefault.jpg';
+          posterUrl = 'https://img.youtube.com/vi/${video.id.value}/hqdefault.jpg';
+        }
+      }
+      
+      // Safely get engagement data
+      int? viewCount;
+      try {
+        viewCount = video.engagement.viewCount;
+      } catch (e) {
+        debugPrint('⚠️ Error accessing engagement: $e');
+      }
+      
+      return MusicTrack(
+        id: video.id.value,
+        title: title,
+        artist: artist,
+        album: '', 
+        duration: video.duration?.inSeconds ?? 0,
+        durationString: _formatDuration(video.duration),
+        webpageUrl: 'https://www.youtube.com/watch?v=${video.id.value}',
+        thumbnail: thumbnailUrl,
+        availability: 'public',
+        category: 'Music',
+        description: video.description,
+        extractor: 'youtube_explode_dart',
+        liveStatus: 'not_live',
+        posterImage: posterUrl,
+        source: 'YouTube',
+        uploader: video.author,
+        viewCount: viewCount,
+        uploadDate: video.uploadDate?.toIso8601String(),
+      );
+    } catch (e) {
+      debugPrint('❌ Error in _createTrackFromVideo: $e');
+      rethrow;
+    }
+  }
+
+  /// Create a basic MusicTrack from a YouTube Video with extensive error handling
+  static MusicTrack? _createBasicTrackFromVideo(Video video) {
+    try {
+      // Basic video properties should always be available
+      final videoId = video.id.value;
+      final videoTitle = video.title;
+      final videoAuthor = video.author;
+      final videoDescription = video.description;
+      
+      if (videoId.isEmpty) {
+        debugPrint('⚠️ Video ID is empty, skipping');
+        return null;
+      }
+      
+      // Safely get duration
+      int durationSeconds = 0;
+      String durationString = '0:00';
+      try {
+        if (video.duration != null) {
+          durationSeconds = video.duration!.inSeconds;
+          durationString = _formatDuration(video.duration);
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error getting duration: $e');
+      }
+      
+      // Safely get thumbnails - this is where the error might occur
+      String thumbnailUrl = '';
+      String posterUrl = '';
+      try {
+        final thumbnails = video.thumbnails;
+        // Try different thumbnail qualities
+        if (thumbnails.mediumResUrl.isNotEmpty) {
+          thumbnailUrl = thumbnails.mediumResUrl;
+        } else if (thumbnails.standardResUrl.isNotEmpty) {
+          thumbnailUrl = thumbnails.standardResUrl;
+        } else if (thumbnails.lowResUrl.isNotEmpty) {
+          thumbnailUrl = thumbnails.lowResUrl;
+        }
+        
+        // For poster, try high quality first
+        if (thumbnails.highResUrl.isNotEmpty) {
+          posterUrl = thumbnails.highResUrl;
+        } else if (thumbnails.maxResUrl.isNotEmpty) {
+          posterUrl = thumbnails.maxResUrl;
+        } else {
+          posterUrl = thumbnailUrl; // Fallback to thumbnail
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error getting thumbnails: $e');
+        // Create fallback thumbnail URL
+        thumbnailUrl = 'https://img.youtube.com/vi/$videoId/mqdefault.jpg';
+        posterUrl = 'https://img.youtube.com/vi/$videoId/hqdefault.jpg';
+      }
+      
+      // Safely get engagement data
+      int? viewCount;
+      try {
+        viewCount = video.engagement.viewCount;
+      } catch (e) {
+        debugPrint('⚠️ Error getting view count: $e');
+      }
+      
+      // Safely get upload date
+      String? uploadDate;
+      try {
+        uploadDate = video.uploadDate?.toIso8601String();
+      } catch (e) {
+        debugPrint('⚠️ Error getting upload date: $e');
+      }
+      
+      // Extract artist and title with fallbacks
+      final titleParts = _extractArtistAndTitle(videoTitle);
+      final artist = titleParts['artist'] ?? videoAuthor;
+      final title = titleParts['title'] ?? videoTitle;
+      
+      return MusicTrack(
+        id: videoId,
+        title: title,
+        artist: artist,
+        album: '', 
+        duration: durationSeconds,
+        durationString: durationString,
+        webpageUrl: 'https://www.youtube.com/watch?v=$videoId',
+        thumbnail: thumbnailUrl,
+        availability: 'public',
+        category: 'Music',
+        description: videoDescription,
+        extractor: 'youtube_explode_dart',
+        liveStatus: 'not_live',
+        posterImage: posterUrl,
+        source: 'YouTube',
+        uploader: videoAuthor,
+        viewCount: viewCount,
+        uploadDate: uploadDate,
+      );
+    } catch (e) {
+      debugPrint('❌ Error creating basic track: $e');
+      return null;
+    }
   }
 
   /// Extract artist and title from video title using common patterns
@@ -251,33 +347,75 @@ class YoutubeSearchService {
     return '${minutes}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  /// Get search suggestions based on YouTube search autocomplete
+  /// Get search suggestions using Google's YouTube search suggestions API
   static Future<List<String>> getSuggestions(String query) async {
     if (query.trim().isEmpty) return [];
     
     try {
-      // Use a simple approach - generate common music-related suggestions
-      final suggestions = <String>[];
-      final baseQuery = query.trim();
+      // Use Google's YouTube search suggestions API
+      final encodedQuery = Uri.encodeComponent(query.trim());
+      final url = 'https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=$encodedQuery';
       
-      // Add some common music search patterns
-      if (baseQuery.length > 2) {
-        suggestions.addAll([
-          '$baseQuery songs',
-          '$baseQuery music',
-          '$baseQuery official',
-          '$baseQuery audio',
-          '$baseQuery playlist',
-        ]);
+      debugPrint('🔍 Fetching YouTube suggestions for: $query');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        // The response is in JSONP format: ["query", ["suggestion1", "suggestion2", ...]]
+        final jsonString = response.body;
+        final List<dynamic> data = json.decode(jsonString);
+        
+        if (data.length > 1 && data[1] is List) {
+          final List<dynamic> suggestions = data[1];
+          final List<String> result = suggestions
+              .where((suggestion) => suggestion is String)
+              .cast<String>()
+              .where((suggestion) => suggestion.isNotEmpty)
+              .take(8) // Limit to 8 suggestions
+              .toList();
+          
+          debugPrint('✅ Found ${result.length} YouTube suggestions');
+          return result;
+        }
+      } else {
+        debugPrint('⚠️ YouTube suggestions API request failed with status: ${response.statusCode}');
       }
       
-      // Limit to 5 suggestions
-      return suggestions.take(5).toList();
+      // Fallback to basic suggestions if API fails
+      return _getFallbackSuggestions(query);
       
     } catch (e) {
-      debugPrint('❌ Error getting suggestions: $e');
-      return [];
+      debugPrint('❌ Error getting YouTube suggestions: $e');
+      return _getFallbackSuggestions(query);
     }
+  }
+
+  /// Fallback suggestions when the YouTube API is unavailable
+  static List<String> _getFallbackSuggestions(String query) {
+    final suggestions = <String>[];
+    final baseQuery = query.trim();
+    
+    // Add some common music search patterns
+    if (baseQuery.length > 2) {
+      suggestions.addAll([
+        '$baseQuery songs',
+        '$baseQuery music',
+        '$baseQuery official',
+        '$baseQuery audio',
+        '$baseQuery playlist',
+        '$baseQuery lyrics',
+        '$baseQuery live',
+        '$baseQuery remix',
+      ]);
+    }
+    
+    // Limit to 6 suggestions
+    return suggestions.take(6).toList();
   }
 
   /// Get trending/popular music tracks and return MusicApiResponse

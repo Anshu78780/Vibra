@@ -109,25 +109,6 @@ class MusicPlayerController extends ChangeNotifier {
           _isHandlingCompletion = false;
         });
       } else {
-        // Check if we're waiting for recommendations to load
-        final currentVideoId = _currentTrack != null ? _extractVideoId(_currentTrack!.webpageUrl) : null;
-        if (currentVideoId != null && _lastRecommendationTrackId != currentVideoId && _queue.length == 1) {
-          print('🔄 Waiting for recommendations to load before ending queue...');
-          // Wait a bit for recommendations to load
-          await Future.delayed(const Duration(seconds: 2));
-          
-          // Check again if we have more tracks now
-          if (hasNext) {
-            print('✅ Recommendations loaded, continuing to next track');
-            final nextTrack = _queue[_currentIndex + 1];
-            _onAutoAdvance?.call('Playing next: ${nextTrack.title}');
-            _playNext().then((_) {
-              _isHandlingCompletion = false;
-            });
-            return;
-          }
-        }
-        
         print('Queue completed, no more tracks');
         _isHandlingCompletion = false;
         notifyListeners();
@@ -633,6 +614,10 @@ class MusicPlayerController extends ChangeNotifier {
       // Mark this as the pending track
       _pendingTrackId = currentTrackId;
       
+      // Start loading recommendations IMMEDIATELY - don't wait for track to start
+      print('🚀 Starting IMMEDIATE recommendation loading for: ${track.title}');
+      _loadRecommendationsEarly(track);
+      
       // Show loading state immediately
       _setLoading(true, 'Loading music...');
       
@@ -658,12 +643,8 @@ class MusicPlayerController extends ChangeNotifier {
       _currentIndex = 0;
       await playTrack(track);
       
-      // Only get recommendations if this is still the current track
-      if (!_isTrackLoadingCancelled(track)) {
-        // Get recommendations in the background
-        print('🔍 Starting recommendation loading for: ${track.title}');
-        _loadRecommendationsInBackground(track);
-      }
+      // The recommendations are already loading in the background via recommendationsFuture
+      
     } catch (e) {
       print('❌ Error playing track with recommendations: $e');
       // Fallback to regular playback if not cancelled
@@ -673,8 +654,8 @@ class MusicPlayerController extends ChangeNotifier {
     }
   }
 
-  /// Load recommendations in the background
-  Future<void> _loadRecommendationsInBackground(MusicTrack track) async {
+  /// Load recommendations early (as soon as track is requested)
+  Future<void> _loadRecommendationsEarly(MusicTrack track) async {
     print('🎯 BACKGROUND: Starting _loadRecommendationsInBackground for: ${track.title}');
     try {
       final videoId = _extractVideoId(track.webpageUrl);

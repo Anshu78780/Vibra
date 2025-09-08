@@ -1,7 +1,7 @@
 name: vibra
 description: "Vibra Music App - Stream and discover your favorite music."
 publish_to: 'none'
-version: 0.0.1
+version: 0.0.2
 
 environment:
   sdk: ^3.9.0
@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   youtube_explode_dart: ^2.5.2
+  http: ^1.1.0
   just_audio: ^0.9.36
   just_audio_windows: ^0.2.0
   smtc_windows: ^0.1.3

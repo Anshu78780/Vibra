@@ -72,11 +72,13 @@ class DownloadService {
   // Bulk download state
   final StreamController<BulkDownloadStatus> _bulkDownloadController = StreamController<BulkDownloadStatus>.broadcast();
   bool _isBulkDownloading = false;
+  bool _shouldCancelDownloads = false;
   int _bulkTotalTracks = 0;
   int _bulkCompletedTracks = 0;
   int _bulkFailedTracks = 0;
 
   Stream<Map<String, double>> get downloadProgressStream => _progressController.stream;
+  Stream<Map<String, double>> get progressStream => _progressController.stream;
   Stream<BulkDownloadStatus> get bulkDownloadStream => _bulkDownloadController.stream;
 
   Future<void> initialize() async {
@@ -132,10 +134,54 @@ class DownloadService {
     return await file.exists();
   }
 
-  Future<void> downloadTrack(MusicTrack track) async {
+  bool isDownloading(MusicTrack track) {
+    final videoId = _extractVideoId(track.webpageUrl);
+    return _activeDownloads[videoId] == true;
+  }
+
+  double getDownloadProgress(MusicTrack track) {
+    final videoId = _extractVideoId(track.webpageUrl);
+    return _downloadProgress[videoId] ?? 0.0;
+  }
+
+  void stopAllDownloads() {
+    debugPrint('🛑 stopAllDownloads() called - setting cancel flag');
+    _shouldCancelDownloads = true;
+    _activeDownloads.clear();
+    _downloadProgress.clear();
+    _progressController.add({});
+    
+    if (_isBulkDownloading) {
+      debugPrint('🛑 Stopping bulk download operation');
+      _isBulkDownloading = false;
+      _bulkDownloadController.add(BulkDownloadStatus(
+        totalTracks: _bulkTotalTracks,
+        completedTracks: _bulkCompletedTracks,
+        failedTracks: _bulkFailedTracks,
+        isDownloading: false,
+        currentTrackTitle: null,
+      ));
+    }
+    
+    debugPrint('🛑 All downloads should now be stopped');
+  }
+
+  bool get isAnyDownloadActive => _activeDownloads.isNotEmpty || _isBulkDownloading;
+
+  Future<void> downloadTrack(MusicTrack track, {bool refreshUrl = false}) async {
     final videoId = _extractVideoId(track.webpageUrl);
     if (videoId.isEmpty) {
       throw Exception('Invalid YouTube URL');
+    }
+
+    // Only reset cancel flag when starting individual download (not part of bulk)
+    if (!_isBulkDownloading) {
+      _shouldCancelDownloads = false;
+    }
+
+    // Check if downloads should be cancelled
+    if (_shouldCancelDownloads) {
+      throw Exception('Download cancelled');
     }
 
     // Check if already downloading
@@ -152,6 +198,14 @@ class DownloadService {
     _downloadProgress[videoId] = 0.0;
     _progressController.add(_downloadProgress);
 
+    // Check if downloads should be cancelled
+    if (_shouldCancelDownloads) {
+      _activeDownloads.remove(videoId);
+      _downloadProgress.remove(videoId);
+      _progressController.add(_downloadProgress);
+      return;
+    }
+
     try {
       debugPrint('🔽 Starting download for: ${track.title}');
       
@@ -163,8 +217,28 @@ class DownloadService {
         0,
       );
 
-      // Get audio URL
-      final audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+      // Get fresh audio URL to avoid stale URLs
+      String audioUrl;
+      try {
+        audioUrl = await yt_audio_service.AudioService.getAudioUrl(videoId);
+        debugPrint('🔗 Got fresh audio URL for: ${track.title}');
+      } catch (e) {
+        debugPrint('❌ Failed to get fresh URL: $e');
+        // If refreshUrl is true and we fail, throw the error
+        if (refreshUrl) {
+          throw Exception('Failed to get fresh audio URL: $e');
+        }
+        // Otherwise, try with a different approach or rethrow
+        rethrow;
+      }
+      
+      // Check if downloads should be cancelled before making HTTP request
+      if (_shouldCancelDownloads) {
+        _activeDownloads.remove(videoId);
+        _downloadProgress.remove(videoId);
+        _progressController.add(_downloadProgress);
+        throw Exception('Download cancelled');
+      }
       
       // Use HTTP client with better configuration for faster downloads
       final client = http.Client();
@@ -212,6 +286,16 @@ class DownloadService {
           
           final progress = contentLength > 0 ? downloadedBytes / contentLength : 0.0;
           _downloadProgress[videoId] = progress;
+          
+          // Check if downloads should be cancelled
+          if (_shouldCancelDownloads) {
+            await sink.close();
+            await file.delete();
+            _activeDownloads.remove(videoId);
+            _downloadProgress.remove(videoId);
+            _progressController.add(_downloadProgress);
+            throw Exception('Download cancelled');
+          }
           
           // Update progress every 200ms for more responsive UI
           final now = DateTime.now();
@@ -292,6 +376,9 @@ class DownloadService {
   Future<void> downloadAllTracks(List<MusicTrack> tracks, {int maxConcurrent = 3}) async {
     if (tracks.isEmpty || _isBulkDownloading) return;
     
+    // Reset cancel flag when starting new downloads
+    _shouldCancelDownloads = false;
+    
     _isBulkDownloading = true;
     _bulkTotalTracks = tracks.length;
     _bulkCompletedTracks = 0;
@@ -336,6 +423,12 @@ class DownloadService {
     final futures = tracksToDownload.map((track) async {
       await semaphore.acquire();
       try {
+        // Check if downloads should be cancelled before starting each track
+        if (_shouldCancelDownloads) {
+          semaphore.release();
+          return;
+        }
+        
         _bulkDownloadController.add(BulkDownloadStatus(
           totalTracks: _bulkTotalTracks,
           completedTracks: _bulkCompletedTracks,
@@ -345,13 +438,30 @@ class DownloadService {
           failedTrackTitles: failedTrackTitles,
         ));
         
-        await downloadTrack(track);
+        await downloadTrack(track, refreshUrl: true);
         _bulkCompletedTracks++;
         debugPrint('✅ Bulk download completed: ${track.title} (${_bulkCompletedTracks}/${_bulkTotalTracks})');
       } catch (e) {
-        _bulkFailedTracks++;
-        failedTrackTitles.add(track.title);
-        debugPrint('❌ Bulk download failed: ${track.title} - $e');
+        // Check if error is due to cancellation
+        if (e.toString().contains('cancelled')) {
+          debugPrint('🛑 Download cancelled: ${track.title}');
+        } else {
+          _bulkFailedTracks++;
+          failedTrackTitles.add(track.title);
+          debugPrint('❌ Bulk download failed: ${track.title} - $e');
+        }
+        
+        // Try once more with a delay for failed downloads
+        try {
+          await Future.delayed(const Duration(seconds: 2));
+          await downloadTrack(track, refreshUrl: true);
+          _bulkCompletedTracks++;
+          failedTrackTitles.removeLast(); // Remove from failed list
+          _bulkFailedTracks--;
+          debugPrint('✅ Retry successful: ${track.title}');
+        } catch (retryError) {
+          debugPrint('❌ Retry also failed: ${track.title} - $retryError');
+        }
       } finally {
         semaphore.release();
         
@@ -366,8 +476,15 @@ class DownloadService {
       }
     }).toList();
     
-    // Wait for all downloads to complete
-    await Future.wait(futures);
+    // Wait for all downloads to complete or until cancelled
+    try {
+      await Future.wait(futures);
+    } catch (e) {
+      // If any download fails due to cancellation, stop the bulk operation
+      if (e.toString().contains('cancelled') || _shouldCancelDownloads) {
+        debugPrint('🛑 Bulk download cancelled');
+      }
+    }
     
     _isBulkDownloading = false;
     
