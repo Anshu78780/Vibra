@@ -41,6 +41,7 @@
         android:label="Vibra"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:requestLegacyExternalStorage="true"
         android:allowBackup="false"
         tools:targetApi="34">

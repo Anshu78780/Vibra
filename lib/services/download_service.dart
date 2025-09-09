@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 import '../models/music_model.dart';
 import '../services/audio_service.dart' as yt_audio_service;
 
@@ -110,12 +111,133 @@ class DownloadService {
   }
 
   Future<String> _getDownloadsDirectory() async {
+    if (Platform.isAndroid) {
+      // Request storage permissions for Android
+      await _requestStoragePermissions();
+      
+      try {
+        // Try to get external storage directory first (Downloads/Vibra)
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          // Create Downloads/Vibra directory
+          final vibrasDir = Directory('/storage/emulated/0/Download/Vibra');
+          if (!await vibrasDir.exists()) {
+            await vibrasDir.create(recursive: true);
+          }
+          return vibrasDir.path;
+        }
+      } catch (e) {
+        print('❌ Could not access external Downloads directory: $e');
+      }
+      
+      // Fallback to app-specific external directory
+      try {
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          final downloadsDir = Directory('${externalDir.path}/Downloads');
+          if (!await downloadsDir.exists()) {
+            await downloadsDir.create(recursive: true);
+          }
+          return downloadsDir.path;
+        }
+      } catch (e) {
+        print('❌ Could not access app external directory: $e');
+      }
+    }
+    
+    // Fallback for iOS or if Android external access fails
     final appDir = await getApplicationDocumentsDirectory();
     final downloadsDir = Directory('${appDir.path}/music_downloads');
     if (!await downloadsDir.exists()) {
       await downloadsDir.create(recursive: true);
     }
     return downloadsDir.path;
+  }
+
+  /// Get downloads directory without requesting permissions
+  /// This allows checking existing downloads without permission prompts
+  Future<String> _getDownloadsDirectoryWithoutPermissions() async {
+    if (Platform.isAndroid) {
+      try {
+        // Try to get external storage directory first (Downloads/Vibra)
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          // Check if Downloads/Vibra directory exists
+          final vibrasDir = Directory('/storage/emulated/0/Download/Vibra');
+          if (await vibrasDir.exists()) {
+            return vibrasDir.path;
+          }
+        }
+      } catch (e) {
+        print('❌ Could not access external Downloads directory without permissions: $e');
+      }
+      
+      // Fallback to app-specific external directory
+      try {
+        final externalDir = await getExternalStorageDirectory();
+        if (externalDir != null) {
+          final downloadsDir = Directory('${externalDir.path}/Downloads');
+          if (await downloadsDir.exists()) {
+            return downloadsDir.path;
+          }
+        }
+      } catch (e) {
+        print('❌ Could not access app external directory without permissions: $e');
+      }
+    }
+    
+    // Fallback for iOS or if Android external access fails
+    final appDir = await getApplicationDocumentsDirectory();
+    final downloadsDir = Directory('${appDir.path}/music_downloads');
+    return downloadsDir.path;
+  }
+
+  /// Request storage permissions for Android
+  Future<bool> _requestStoragePermissions() async {
+    if (!Platform.isAndroid) return true;
+    
+    try {
+      // For Android 11+ (API 30+), we need to handle scoped storage
+      if (await Permission.manageExternalStorage.isGranted) {
+        return true;
+      }
+      
+      // Request MANAGE_EXTERNAL_STORAGE permission for Android 11+
+      var status = await Permission.manageExternalStorage.request();
+      if (status.isGranted) {
+        return true;
+      }
+      
+      // Fallback to regular storage permissions for older Android versions
+      var storageStatus = await Permission.storage.status;
+      if (storageStatus.isGranted) {
+        return true;
+      }
+      
+      storageStatus = await Permission.storage.request();
+      return storageStatus.isGranted;
+    } catch (e) {
+      print('❌ Error requesting storage permissions: $e');
+      return false;
+    }
+  }
+
+  /// Check if storage permissions are granted
+  Future<bool> hasStoragePermissions() async {
+    if (!Platform.isAndroid) return true;
+    
+    try {
+      // Check for MANAGE_EXTERNAL_STORAGE (Android 11+)
+      if (await Permission.manageExternalStorage.isGranted) {
+        return true;
+      }
+      
+      // Check for regular storage permission
+      return await Permission.storage.isGranted;
+    } catch (e) {
+      print('❌ Error checking storage permissions: $e');
+      return false;
+    }
   }
 
   String _extractVideoId(String url) {
@@ -128,10 +250,23 @@ class DownloadService {
   }
 
   Future<bool> isDownloaded(MusicTrack track) async {
+    // Handle local files (manually placed files)
+    if (track.webpageUrl.startsWith('file://')) {
+      final filePath = track.webpageUrl.substring(7); // Remove 'file://' prefix
+      final file = File(filePath);
+      return await file.exists();
+    }
+    
+    // Handle app-downloaded files
     final videoId = _extractVideoId(track.webpageUrl);
-    final downloadsDir = await _getDownloadsDirectory();
-    final file = File('$downloadsDir/$videoId.mp3');
-    return await file.exists();
+    try {
+      final downloadsDir = await _getDownloadsDirectoryWithoutPermissions();
+      final file = File('$downloadsDir/$videoId.mp3');
+      return await file.exists();
+    } catch (e) {
+      print('❌ Could not check if track is downloaded without permissions: $e');
+      return false;
+    }
   }
 
   bool isDownloading(MusicTrack track) {
@@ -172,6 +307,14 @@ class DownloadService {
     final videoId = _extractVideoId(track.webpageUrl);
     if (videoId.isEmpty) {
       throw Exception('Invalid YouTube URL');
+    }
+
+    // Check storage permissions on Android
+    if (Platform.isAndroid && !(await hasStoragePermissions())) {
+      final granted = await _requestStoragePermissions();
+      if (!granted) {
+        throw Exception('Storage permission required to download music. Please grant permission in Settings.');
+      }
     }
 
     // Only reset cancel flag when starting individual download (not part of bulk)
@@ -376,6 +519,14 @@ class DownloadService {
   Future<void> downloadAllTracks(List<MusicTrack> tracks, {int maxConcurrent = 3}) async {
     if (tracks.isEmpty || _isBulkDownloading) return;
     
+    // Check storage permissions on Android before starting bulk download
+    if (Platform.isAndroid && !(await hasStoragePermissions())) {
+      final granted = await _requestStoragePermissions();
+      if (!granted) {
+        throw Exception('Storage permission required to download music. Please grant permission in Settings.');
+      }
+    }
+    
     // Reset cancel flag when starting new downloads
     _shouldCancelDownloads = false;
     
@@ -543,13 +694,155 @@ class DownloadService {
     return validTracks;
   }
 
-  Future<String?> getDownloadedAudioPath(MusicTrack track) async {
-    final videoId = _extractVideoId(track.webpageUrl);
-    final downloadsDir = await _getDownloadsDirectory();
-    final file = File('$downloadsDir/$videoId.mp3');
+  /// Get downloaded tracks without requesting permissions
+  /// This allows viewing existing downloads without permission prompts
+  /// Also scans for any audio files manually placed in Downloads/Vibra/
+  Future<List<MusicTrack>> getDownloadedTracksWithoutPermissionCheck() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tracksJson = prefs.getString('downloaded_tracks');
     
-    if (await file.exists()) {
-      return file.path;
+    // Get app-downloaded tracks
+    final appDownloadedTracks = <MusicTrack>[];
+    if (tracksJson != null) {
+      final List<dynamic> tracksList = jsonDecode(tracksJson);
+      appDownloadedTracks.addAll(tracksList.map((json) => MusicTrack.fromJson(json)));
+    }
+    
+    // Get all tracks (app-downloaded + manually placed files)
+    final allTracks = <MusicTrack>[];
+    final knownVideoIds = <String>{};
+    
+    try {
+      final downloadsDir = await _getDownloadsDirectoryWithoutPermissions();
+      final dir = Directory(downloadsDir);
+      
+      if (await dir.exists()) {
+        // First, add valid app-downloaded tracks
+        for (final track in appDownloadedTracks) {
+          final videoId = _extractVideoId(track.webpageUrl);
+          final file = File('$downloadsDir/$videoId.mp3');
+          if (await file.exists()) {
+            allTracks.add(track);
+            knownVideoIds.add(videoId);
+          }
+        }
+        
+        // Then scan for additional audio files not tracked by the app
+        final audioFiles = await dir.list()
+            .where((entity) => entity is File)
+            .cast<File>()
+            .where((file) => file.path.toLowerCase().endsWith('.mp3') || 
+                           file.path.toLowerCase().endsWith('.m4a') ||
+                           file.path.toLowerCase().endsWith('.aac') ||
+                           file.path.toLowerCase().endsWith('.wav') ||
+                           file.path.toLowerCase().endsWith('.flac'))
+            .toList();
+        
+        for (final audioFile in audioFiles) {
+          final fileName = audioFile.path.split(Platform.pathSeparator).last;
+          final fileNameWithoutExtension = fileName.substring(0, fileName.lastIndexOf('.'));
+          
+          // Skip if this file is already tracked by the app
+          if (knownVideoIds.contains(fileNameWithoutExtension)) {
+            continue;
+          }
+          
+          // Create a MusicTrack for manually placed files
+          final manualTrack = MusicTrack(
+            id: 'manual_$fileNameWithoutExtension',
+            title: _formatTrackTitle(fileNameWithoutExtension),
+            artist: 'Unknown Artist',
+            album: 'Local Files',
+            duration: 0, // We'll try to get duration later
+            durationString: '00:00',
+            thumbnail: '', // No thumbnail for manual files
+            posterImage: '',
+            webpageUrl: 'file://${audioFile.path}', // Use file path as identifier
+            source: 'local',
+            availability: 'public',
+            category: 'Music',
+            description: 'Manually added audio file',
+            extractor: 'local',
+            liveStatus: 'not_live',
+            uploader: 'Local Files',
+          );
+          
+          allTracks.add(manualTrack);
+        }
+        
+        // Update the stored list to include only valid app-downloaded tracks
+        final validAppTracks = allTracks.where((track) => 
+            track.source != 'local' && appDownloadedTracks.any((appTrack) => 
+                appTrack.webpageUrl == track.webpageUrl)).toList();
+                
+        if (validAppTracks.length != appDownloadedTracks.length) {
+          final validTracksJson = validAppTracks.map((t) => t.toJson()).toList();
+          await prefs.setString('downloaded_tracks', jsonEncode(validTracksJson));
+        }
+      }
+    } catch (e) {
+      print('❌ Could not access downloads directory without permissions: $e');
+      // Return the stored tracks without verification if we can't access the directory
+      return appDownloadedTracks;
+    }
+    
+    return allTracks;
+  }
+  
+  /// Format filename to a more readable track title
+  String _formatTrackTitle(String filename) {
+    // Remove common YouTube ID patterns and clean up the filename
+    String title = filename;
+    
+    // Remove YouTube video ID patterns (11 characters alphanumeric)
+    title = title.replaceAll(RegExp(r'^[a-zA-Z0-9_-]{11}$'), '');
+    
+    // Replace underscores and dashes with spaces
+    title = title.replaceAll(RegExp(r'[_-]+'), ' ');
+    
+    // Clean up multiple spaces
+    title = title.replaceAll(RegExp(r'\s+'), ' ').trim();
+    
+    // Capitalize first letter of each word
+    if (title.isNotEmpty) {
+      title = title.split(' ').map((word) {
+        if (word.isNotEmpty) {
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        }
+        return word;
+      }).join(' ');
+    }
+    
+    // If title is empty or too short, use the original filename
+    if (title.isEmpty || title.length < 3) {
+      title = filename;
+    }
+    
+    return title;
+  }
+
+  Future<String?> getDownloadedAudioPath(MusicTrack track) async {
+    // Handle local files (manually placed files)
+    if (track.webpageUrl.startsWith('file://')) {
+      final filePath = track.webpageUrl.substring(7); // Remove 'file://' prefix
+      final file = File(filePath);
+      if (await file.exists()) {
+        return file.path;
+      }
+      return null;
+    }
+    
+    // Handle app-downloaded files
+    final videoId = _extractVideoId(track.webpageUrl);
+    try {
+      final downloadsDir = await _getDownloadsDirectoryWithoutPermissions();
+      final file = File('$downloadsDir/$videoId.mp3');
+      
+      if (await file.exists()) {
+        return file.path;
+      }
+    } catch (e) {
+      print('❌ Could not check downloaded audio path without permissions: $e');
     }
     return null;
   }

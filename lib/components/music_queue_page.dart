@@ -6,6 +6,7 @@ import '../services/youtube_search_service.dart';
 import '../services/playlist_service.dart';
 import '../services/playlist_songs_service.dart';
 import '../services/cache_service.dart';
+import '../services/music_network_client.dart';
 import '../controllers/music_player_controller.dart';
 import '../services/liked_songs_service.dart';
 import '../services/liked_playlists_service.dart';
@@ -842,6 +843,9 @@ Cache Debug Info:
   }
 
   void _showPlaylistOptions(Playlist playlist) {
+    final networkClient = MusicNetworkClient();
+    final isConnected = networkClient.isConnected;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1C1C1E),
@@ -867,6 +871,22 @@ Cache Debug Info:
                 _onPlaylistTap(playlist);
               },
             ),
+            if (isConnected) ...[
+              ListTile(
+                leading: const Icon(Icons.send, color: Colors.orange),
+                title: Text(
+                  'Send to ${networkClient.connectedDevice?.name ?? "Remote Device"}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _sendPlaylistToRemote(playlist);
+                },
+              ),
+            ],
             ListTile(
               leading: const Icon(Icons.share, color: Colors.white),
               title: const Text(
@@ -891,6 +911,124 @@ Cache Debug Info:
       isScrollControlled: true,
       builder: (context) => PlaylistSongsDrawer(playlist: playlist),
     );
+  }
+
+  Future<void> _sendPlaylistToRemote(Playlist playlist) async {
+    final networkClient = MusicNetworkClient();
+    if (!networkClient.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not connected to any device'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        backgroundColor: Color(0xFF1C1C1E),
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text(
+              'Loading playlist...',
+              style: TextStyle(color: Colors.white, fontFamily: 'CascadiaCode'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Fetch playlist songs
+      final songs = await PlaylistSongsService.getPlaylistSongs(playlist.playlistId);
+      
+      if (!context.mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      if (songs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Playlist is empty'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Show dialog to select how to send
+      final result = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1C1C1E),
+          title: const Text(
+            'Send Playlist',
+            style: TextStyle(color: Colors.white, fontFamily: 'CascadiaCode'),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Send "${playlist.title}" (${songs.length} songs) to ${networkClient.connectedDevice?.name}?',
+                style: const TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Choose how to send:',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'replace'),
+              child: const Text('Replace Queue', style: TextStyle(color: Colors.orange)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'add'),
+              child: const Text('Add to Queue', style: TextStyle(color: Colors.orange)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        ),
+      );
+
+      if (result == null || !context.mounted) return;
+
+      bool success = false;
+      if (result == 'replace') {
+        success = await networkClient.remotePlayPlaylist(songs, replaceQueue: true);
+      } else if (result == 'add') {
+        success = await networkClient.remoteAddToQueue(songs);
+      }
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success 
+              ? 'Sent "${playlist.title}" to remote device'
+              : 'Failed to send playlist to remote device'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Close loading dialog if still open
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load playlist: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildMusicSection() {
@@ -1586,27 +1724,8 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
           // Play all button
           if (_songs.isNotEmpty)
             Container(
-              width: double.infinity,
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: () => _playAllSongs(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                icon: const Icon(Icons.play_arrow),
-                label: const Text(
-                  'Play All',
-                  style: TextStyle(
-                    fontFamily: 'CascadiaCode',
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              child: _buildPlayAllButtons(),
             ),
           
           const SizedBox(height: 16),
@@ -1827,6 +1946,152 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
     );
   }
 
+  Widget _buildPlayAllButtons() {
+    final networkClient = MusicNetworkClient();
+    final isConnected = networkClient.isConnected;
+    
+    if (isConnected) {
+      return Column(
+        children: [
+          // Local Play All button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _playAllSongs(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6366F1),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text(
+                'Play All',
+                style: TextStyle(
+                  fontFamily: 'CascadiaCode',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Remote Play All button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _sendAllSongsToRemote(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.send),
+              label: Text(
+                'Send to ${networkClient.connectedDevice?.name ?? "Remote"}',
+                style: const TextStyle(
+                  fontFamily: 'CascadiaCode',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _playAllSongs(),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF6366F1),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          icon: const Icon(Icons.play_arrow),
+          label: const Text(
+            'Play All',
+            style: TextStyle(
+              fontFamily: 'CascadiaCode',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendAllSongsToRemote() async {
+    final networkClient = MusicNetworkClient();
+    if (!networkClient.isConnected || _songs.isEmpty) return;
+
+    // Show dialog to select how to send
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text(
+          'Send Playlist',
+          style: TextStyle(color: Colors.white, fontFamily: 'CascadiaCode'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Send ${_songs.length} songs to ${networkClient.connectedDevice?.name}?',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Choose how to send:',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'replace'),
+            child: const Text('Replace Queue', style: TextStyle(color: Colors.orange)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'add'),
+            child: const Text('Add to Queue', style: TextStyle(color: Colors.orange)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null) return;
+
+    bool success = false;
+    if (result == 'replace') {
+      success = await networkClient.remotePlayPlaylist(_songs, replaceQueue: true);
+    } else if (result == 'add') {
+      success = await networkClient.remoteAddToQueue(_songs);
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success 
+            ? 'Sent ${_songs.length} songs to remote device'
+            : 'Failed to send songs to remote device'),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
   void _playAllSongs() {
     if (_songs.isNotEmpty) {
       Navigator.pop(context);
@@ -1841,6 +2106,8 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
 
   void _showSongOptions(MusicTrack song) {
     final isLiked = LikedSongsService.isTrackLiked(song.webpageUrl);
+    final networkClient = MusicNetworkClient();
+    final isConnected = networkClient.isConnected;
     
     showModalBottomSheet(
       context: context,
@@ -1868,6 +2135,54 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                 _playSong(song, index);
               },
             ),
+            if (isConnected) ...[
+              ListTile(
+                leading: const Icon(Icons.send, color: Colors.orange),
+                title: Text(
+                  'Play on ${networkClient.connectedDevice?.name ?? "Remote"}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final success = await networkClient.remotePlayTrack(song);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(success 
+                          ? 'Playing "${song.title}" on remote device'
+                          : 'Failed to play on remote device'),
+                      backgroundColor: success ? Colors.green : Colors.red,
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.playlist_add, color: Colors.orange),
+                title: const Text(
+                  'Add to Remote Queue',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final success = await networkClient.remoteAddToQueue(song);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(success 
+                          ? 'Added "${song.title}" to remote queue'
+                          : 'Failed to add to remote queue'),
+                      backgroundColor: success ? Colors.green : Colors.red,
+                    ),
+                  );
+                },
+              ),
+            ],
             ListTile(
               leading: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border, 

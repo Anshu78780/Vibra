@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 import 'package:uuid/uuid.dart';
 import '../controllers/music_player_controller.dart';
+import '../models/music_model.dart';
 import 'simple_network_info.dart';
 
 class MusicNetworkServer extends ChangeNotifier {
@@ -136,6 +137,7 @@ class MusicNetworkServer extends ChangeNotifier {
 
     try {
       final path = request.uri.path;
+      final method = request.method;
       
       switch (path) {
         case '/api/status':
@@ -168,9 +170,28 @@ class MusicNetworkServer extends ChangeNotifier {
         case '/api/queue':
           await _handleQueue(request, response);
           break;
+        case '/api/control/play-track':
+          await _handlePlayTrack(request, response);
+          break;
+        case '/api/control/add-to-queue':
+          await _handleAddToQueue(request, response);
+          break;
+        case '/api/control/set-queue':
+          await _handleSetQueue(request, response);
+          break;
+        case '/api/control/play-playlist':
+          await _handlePlayPlaylist(request, response);
+          break;
+        case '/api/test':
+          response.write(jsonEncode({'success': true, 'message': 'Test endpoint works'}));
+          break;
         default:
           response.statusCode = 404;
-          response.write(jsonEncode({'error': 'Endpoint not found'}));
+          response.write(jsonEncode({
+            'error': 'Endpoint not found', 
+            'path': path,
+            'method': method
+          }));
       }
     } catch (e) {
       response.statusCode = 500;
@@ -200,10 +221,14 @@ class MusicNetworkServer extends ChangeNotifier {
     final body = await utf8.decoder.bind(request).join();
     final data = jsonDecode(body);
     
+    // Get client IP address
+    final clientIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
+    
     final device = ConnectedDevice(
       id: data['deviceId'] ?? const Uuid().v4(),
       name: data['deviceName'] ?? 'Unknown Device',
       platform: data['platform'] ?? 'unknown',
+      ipAddress: clientIp,
       connectedAt: DateTime.now(),
     );
     
@@ -301,18 +326,206 @@ class MusicNetworkServer extends ChangeNotifier {
     };
     response.write(jsonEncode(queueInfo));
   }
+
+  Future<void> _handlePlayTrack(HttpRequest request, HttpResponse response) async {
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      final data = jsonDecode(body);
+      
+      if (data['track'] == null) {
+        response.write(jsonEncode({
+          'success': false,
+          'message': 'Track data is required',
+        }));
+        return;
+      }
+      
+      final track = MusicTrack.fromJson(data['track']);
+      final addToQueue = data['addToQueue'] ?? false;
+      
+      if (addToQueue) {
+        // Add to queue and optionally play
+        _playerController.addToQueue(track);
+        if (_playerController.currentTrack == null) {
+          // If nothing is playing, start playing this track
+          await _playerController.playTrackFromQueue(_playerController.queue, _playerController.queue.length - 1);
+        }
+      } else {
+        // Play immediately with recommendations
+        await _playerController.playTrackWithRecommendations(track);
+      }
+      
+      response.write(jsonEncode({
+        'success': true,
+        'action': 'play_track',
+        'track': track.toJson(),
+        'addedToQueue': addToQueue,
+        'currentTrack': _playerController.currentTrack?.toJson(),
+      }));
+    } catch (e) {
+      response.write(jsonEncode({
+        'success': false,
+        'message': 'Failed to play track: $e',
+      }));
+    }
+  }
+
+  Future<void> _handleAddToQueue(HttpRequest request, HttpResponse response) async {
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      final data = jsonDecode(body);
+      
+      if (data['track'] != null) {
+        // Single track
+        final track = MusicTrack.fromJson(data['track']);
+        _playerController.addToQueue(track);
+        
+        response.write(jsonEncode({
+          'success': true,
+          'action': 'add_to_queue',
+          'track': track.toJson(),
+          'queueLength': _playerController.queue.length,
+        }));
+      } else if (data['tracks'] != null) {
+        // Multiple tracks
+        final tracks = (data['tracks'] as List)
+            .map((trackJson) => MusicTrack.fromJson(trackJson))
+            .toList();
+        
+        for (final track in tracks) {
+          _playerController.addToQueue(track);
+        }
+        
+        response.write(jsonEncode({
+          'success': true,
+          'action': 'add_multiple_to_queue',
+          'tracksAdded': tracks.length,
+          'queueLength': _playerController.queue.length,
+        }));
+      } else {
+        response.write(jsonEncode({
+          'success': false,
+          'message': 'Track or tracks data is required',
+        }));
+      }
+    } catch (e) {
+      response.write(jsonEncode({
+        'success': false,
+        'message': 'Failed to add to queue: $e',
+      }));
+    }
+  }
+
+  Future<void> _handleSetQueue(HttpRequest request, HttpResponse response) async {
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      final data = jsonDecode(body);
+      
+      if (data['tracks'] == null) {
+        response.write(jsonEncode({
+          'success': false,
+          'message': 'Tracks data is required',
+        }));
+        return;
+      }
+      
+      final tracks = (data['tracks'] as List)
+          .map((trackJson) => MusicTrack.fromJson(trackJson))
+          .toList();
+      
+      final startIndex = data['startIndex'] ?? 0;
+      final autoPlay = data['autoPlay'] ?? true;
+      
+      // Set the new queue
+      _playerController.setQueue(tracks);
+      
+      // Optionally start playing from the specified index
+      if (autoPlay && tracks.isNotEmpty && startIndex >= 0 && startIndex < tracks.length) {
+        await _playerController.playTrackFromQueue(tracks, startIndex);
+      }
+      
+      response.write(jsonEncode({
+        'success': true,
+        'action': 'set_queue',
+        'queueLength': tracks.length,
+        'startIndex': startIndex,
+        'autoPlay': autoPlay,
+        'currentTrack': _playerController.currentTrack?.toJson(),
+      }));
+    } catch (e) {
+      response.write(jsonEncode({
+        'success': false,
+        'message': 'Failed to set queue: $e',
+      }));
+    }
+  }
+
+  Future<void> _handlePlayPlaylist(HttpRequest request, HttpResponse response) async {
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      final data = jsonDecode(body);
+      
+      if (data['tracks'] == null) {
+        response.write(jsonEncode({
+          'success': false,
+          'message': 'Tracks data is required',
+        }));
+        return;
+      }
+      
+      final tracks = (data['tracks'] as List)
+          .map((trackJson) => MusicTrack.fromJson(trackJson))
+          .toList();
+      
+      final startIndex = data['startIndex'] ?? 0;
+      final replaceQueue = data['replaceQueue'] ?? true;
+      
+      if (replaceQueue) {
+        // Replace the current queue with the playlist
+        _playerController.setQueue(tracks);
+      } else {
+        // Add playlist to the existing queue
+        for (final track in tracks) {
+          _playerController.addToQueue(track);
+        }
+      }
+      
+      // Start playing from the specified index
+      if (tracks.isNotEmpty && startIndex >= 0 && startIndex < tracks.length) {
+        final playIndex = replaceQueue ? startIndex : (_playerController.queue.length - tracks.length + startIndex);
+        await _playerController.playTrackFromQueue(_playerController.queue, playIndex);
+      }
+      
+      response.write(jsonEncode({
+        'success': true,
+        'action': 'play_playlist',
+        'tracksAdded': tracks.length,
+        'startIndex': startIndex,
+        'replaceQueue': replaceQueue,
+        'queueLength': _playerController.queue.length,
+        'currentTrack': _playerController.currentTrack?.toJson(),
+      }));
+    } catch (e) {
+      response.write(jsonEncode({
+        'success': false,
+        'message': 'Failed to play playlist: $e',
+      }));
+    }
+  }
 }
 
 class ConnectedDevice {
   final String id;
   final String name;
   final String platform;
+  final String ipAddress;
   final DateTime connectedAt;
 
   ConnectedDevice({
     required this.id,
     required this.name,
     required this.platform,
+    required this.ipAddress,
     required this.connectedAt,
   });
 
@@ -320,6 +533,7 @@ class ConnectedDevice {
     'id': id,
     'name': name,
     'platform': platform,
+    'ipAddress': ipAddress,
     'connectedAt': connectedAt.toIso8601String(),
   };
 }

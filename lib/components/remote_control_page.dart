@@ -480,23 +480,24 @@ class _RemoteControlPageState extends State<RemoteControlPage>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: _scanQRCode,
-                      icon: const Icon(Icons.qr_code_scanner),
-                      label: const Text('Scan QR'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        textStyle: const TextStyle(
-                          fontFamily: 'CascadiaCode',
-                          fontWeight: FontWeight.w600,
+                    if (!Platform.isWindows) // Hide QR scanner on Windows
+                      ElevatedButton.icon(
+                        onPressed: _scanQRCode,
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('Scan QR'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(
+                            fontFamily: 'CascadiaCode',
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ],

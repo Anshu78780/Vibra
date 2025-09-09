@@ -6,7 +6,10 @@ import '../services/liked_songs_service.dart';
 import '../services/user_playlist_service.dart';
 import '../services/liked_playlists_service.dart';
 import '../services/queue_playlist_service.dart';
+import '../services/music_network_client.dart';
+import '../services/lyrics_service.dart';
 import '../models/music_model.dart';
+import '../models/lyrics_model.dart';
 
 class FullMusicPlayer extends StatefulWidget {
   const FullMusicPlayer({super.key});
@@ -21,8 +24,13 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   bool _isDownloaded = false;
   bool _isDownloading = false;
   bool _showQueue = false;
+  bool _showLyrics = false;
+  bool _isLoadingLyrics = false;
+  LyricsData? _lyricsData;
+  String? _lastTrackForLyrics;
   late AnimationController _queueAnimationController;
   late Animation<double> _queueSlideAnimation;
+  ScrollController? _lyricsScrollController;
 
   @override
   void initState() {
@@ -31,6 +39,9 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
     _checkIfLiked();
     _checkIfDownloaded();
     _initializeServices();
+    
+    // Initialize scroll controller for lyrics
+    _lyricsScrollController = ScrollController();
     
     // Initialize queue animation
     _queueAnimationController = AnimationController(
@@ -54,6 +65,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   void dispose() {
     _controller.removeListener(_onPlayerStateChanged);
     _queueAnimationController.dispose();
+    _lyricsScrollController?.dispose();
     super.dispose();
   }
 
@@ -62,6 +74,73 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
       setState(() {});
       _checkIfLiked();
       _checkIfDownloaded();
+      _loadLyricsIfNeeded();
+    }
+  }
+
+  void _loadLyricsIfNeeded() async {
+    final currentTrack = _controller.currentTrack;
+    if (currentTrack == null) {
+      _lyricsData = null;
+      _lastTrackForLyrics = null;
+      return;
+    }
+
+    // Check if we already loaded lyrics for this track
+    final trackKey = '${currentTrack.title}_${currentTrack.artist}';
+    if (_lastTrackForLyrics == trackKey && _lyricsData != null) {
+      return;
+    }
+
+    // Load lyrics for the new track
+    if (!_isLoadingLyrics) {
+      setState(() {
+        _isLoadingLyrics = true;
+        _lyricsData = null;
+      });
+
+      try {
+        // Debug the track information being passed
+        print('🎵 FULL_MUSIC_PLAYER: Loading lyrics for track');
+        LyricsService.debugTrackInfo(currentTrack.title, currentTrack.artist);
+        
+        // Get track duration from the controller
+        final trackDuration = _controller.duration.inSeconds.toDouble();
+        
+        final lyrics = await LyricsService.getLyrics(
+          currentTrack.title,
+          currentTrack.artist,
+          duration: trackDuration > 0 ? trackDuration : null,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _lyricsData = lyrics;
+            _lastTrackForLyrics = trackKey;
+            _isLoadingLyrics = false;
+          });
+          
+          // Reset scroll position for new lyrics
+          if (_lyricsScrollController?.hasClients == true) {
+            _lyricsScrollController!.jumpTo(0);
+          }
+          
+          if (lyrics != null) {
+            print('✅ FULL_MUSIC_PLAYER: Lyrics loaded successfully');
+          } else {
+            print('❌ FULL_MUSIC_PLAYER: No lyrics found');
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _lyricsData = null;
+            _lastTrackForLyrics = trackKey;
+            _isLoadingLyrics = false;
+          });
+        }
+        print('Error loading lyrics: $e');
+      }
     }
   }
 
@@ -139,13 +218,15 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Download started - check notifications for progress',
-                style: TextStyle(fontFamily: 'CascadiaCode'),
+                Platform.isAndroid 
+                    ? 'Download started - saving to Downloads/Vibra/${_controller.currentTrack!.title}.mp3'
+                    : 'Download started - check notifications for progress',
+                style: const TextStyle(fontFamily: 'CascadiaCode'),
               ),
-              backgroundColor: Color(0xFF1C1C1E),
-              duration: Duration(seconds: 3),
+              backgroundColor: const Color(0xFF1C1C1E),
+              duration: const Duration(seconds: 4),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -166,14 +247,24 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             _isDownloading = false;
           });
           
+          // Show different error messages based on the error type
+          String errorMessage = 'Download failed: $e';
+          if (e.toString().contains('permission')) {
+            errorMessage = 'Storage permission required. Please grant permission in Settings.';
+          } else if (e.toString().contains('already downloaded')) {
+            errorMessage = 'Track already downloaded';
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Download failed: $e',
+                errorMessage,
                 style: const TextStyle(fontFamily: 'CascadiaCode'),
               ),
-              backgroundColor: const Color(0xFF6366F1),
-              duration: const Duration(seconds: 3),
+              backgroundColor: e.toString().contains('already downloaded') 
+                  ? const Color(0xFF1C1C1E) 
+                  : Colors.red,
+              duration: const Duration(seconds: 4),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -197,6 +288,168 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         });
       }
     });
+  }
+
+  void _showShareDrawer() {
+    final networkClient = MusicNetworkClient();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A3A3E),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.share_rounded, color: Colors.orange, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Share with ${networkClient.connectedDevice?.name ?? "Remote Device"}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'CascadiaCode',
+                        ),
+                      ),
+                      Text(
+                        'Send music to connected device',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 14,
+                          fontFamily: 'CascadiaCode',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Share options
+            if (_controller.currentTrack != null) ...[
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.play_arrow_rounded, color: Colors.orange),
+                ),
+                title: const Text(
+                  'Send Current Track',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                ),
+                subtitle: Text(
+                  'Play "${_controller.currentTrack!.title}" on remote device',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _sendCurrentTrackToRemote();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (_controller.queue.isNotEmpty) ...[
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.playlist_play_rounded, color: Colors.orange),
+                ),
+                title: const Text(
+                  'Send Queue',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                ),
+                subtitle: Text(
+                  'Send all ${_controller.queue.length} tracks to remote device',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _sendQueueToRemote();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+            // View Queue option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.queue_music_rounded, color: Colors.white),
+              ),
+              title: const Text(
+                'View Queue',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
+              subtitle: Text(
+                'Manage your local queue (${_controller.queue.length} tracks)',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 12,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showQueueView();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showPlaylistManagement() {
@@ -662,20 +915,20 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  // Album artwork
-                  _buildAlbumArtwork(),
-                  const SizedBox(height: 40),
+                  // Album artwork (smaller when showing lyrics)
+                  _showLyrics ? _buildCompactAlbumArtwork() : _buildAlbumArtwork(),
+                  const SizedBox(height: 20),
                   // Track info
                   _buildTrackInfo(),
-                  const SizedBox(height: 32),
-                  // Progress bar
-                  _buildProgressBar(),
-                  const SizedBox(height: 32),
-                  // Controls
-                  _buildControls(),
-                  const SizedBox(height: 24),
-                  // Action buttons (like, download, queue)
-                  _buildActionButtons(),
+                  const SizedBox(height: 20),
+                  // Lyrics/Controls toggle button
+                  _buildLyricsToggleButton(),
+                  const SizedBox(height: 20),
+                  // Show either lyrics or controls
+                  if (_showLyrics)
+                    _buildLyricsView()
+                  else
+                    _buildControlsSection(),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -690,6 +943,266 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
           Positioned.fill(child: _buildLoadingOverlay()),
       ],
     );
+  }
+
+  Widget _buildLyricsToggleButton() {
+    if (_controller.currentTrack == null) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 32),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _showLyrics = false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: !_showLyrics 
+                      ? const Color(0xFF6366F1) 
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    bottomLeft: Radius.circular(20),
+                  ),
+                  border: Border.all(
+                    color: const Color(0xFF6366F1),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Controls',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: !_showLyrics ? Colors.white : const Color(0xFF6366F1),
+                    fontFamily: 'CascadiaCode',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _showLyrics = true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: _showLyrics 
+                      ? const Color(0xFF6366F1) 
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                  border: Border.all(
+                    color: const Color(0xFF6366F1),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Lyrics',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _showLyrics ? Colors.white : const Color(0xFF6366F1),
+                    fontFamily: 'CascadiaCode',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlsSection() {
+    return Column(
+      children: [
+        // Progress bar
+        _buildProgressBar(),
+        const SizedBox(height: 32),
+        // Controls
+        _buildControls(),
+        const SizedBox(height: 24),
+        // Action buttons (like, download, queue)
+        _buildActionButtons(),
+      ],
+    );
+  }
+
+  Widget _buildLyricsView() {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      child: _buildLyricsContent(),
+    );
+  }
+
+  Widget _buildLyricsContent() {
+    if (_isLoadingLyrics) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Loading lyrics...',
+              style: TextStyle(
+                color: Colors.white70,
+                fontFamily: 'CascadiaCode',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_lyricsData == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.music_note_outlined,
+              size: 64,
+              color: Colors.grey[600],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No lyrics available',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'CascadiaCode',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Lyrics not found for this track',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+                fontFamily: 'CascadiaCode',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_lyricsData!.hasSyncedLyrics) {
+      return _buildSyncedLyrics();
+    } else if (_lyricsData!.hasPlainLyrics) {
+      return _buildPlainLyrics();
+    } else {
+      return const Center(
+        child: Text(
+          'No lyrics available',
+          style: TextStyle(
+            color: Colors.grey,
+            fontFamily: 'CascadiaCode',
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildSyncedLyrics() {
+    final currentPosition = _controller.position.inSeconds.toDouble();
+    final lyrics = _lyricsData!.lyrics;
+    
+    // Find the current line index
+    int currentLineIndex = -1;
+    for (int i = 0; i < lyrics.length; i++) {
+      if (_isCurrentLyricsLine(lyrics[i], currentPosition, i)) {
+        currentLineIndex = i;
+        break;
+      }
+    }
+    
+    // Auto-scroll to current line (keep it near the top like Spotify)
+    if (currentLineIndex >= 0 && _lyricsScrollController?.hasClients == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_lyricsScrollController?.hasClients == true) {
+          // Calculate offset to keep current line at 1/3 from top (like Spotify)
+          final itemHeight = 56.0; // Approximate height per line
+          final viewportHeight = _lyricsScrollController!.position.viewportDimension;
+          final targetOffset = (currentLineIndex * itemHeight) - (viewportHeight * 0.3);
+          
+          _lyricsScrollController!.animateTo(
+            targetOffset.clamp(0.0, _lyricsScrollController!.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+    
+    return ListView.builder(
+      controller: _lyricsScrollController,
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      itemCount: lyrics.length,
+      itemBuilder: (context, index) {
+        final line = lyrics[index];
+        final isCurrentLine = _isCurrentLyricsLine(line, currentPosition, index);
+        final isUpcomingLine = _isUpcomingLyricsLine(line, currentPosition);
+        
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+          child: Text(
+            line.text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isCurrentLine ? 24 : 18,
+              fontWeight: isCurrentLine ? FontWeight.bold : FontWeight.normal,
+              color: isCurrentLine 
+                  ? const Color(0xFF6366F1)
+                  : isUpcomingLine 
+                      ? Colors.white.withOpacity(0.8)
+                      : Colors.white.withOpacity(0.4),
+              fontFamily: 'CascadiaCode',
+              height: 1.4,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlainLyrics() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Text(
+        _lyricsData!.metadata.plainLyrics,
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white,
+          fontFamily: 'CascadiaCode',
+          height: 1.6,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  bool _isCurrentLyricsLine(LyricsLine line, double currentPosition, int index) {
+    if (index >= _lyricsData!.lyrics.length - 1) {
+      // Last line
+      return currentPosition >= line.startTime;
+    }
+    
+    final nextLine = _lyricsData!.lyrics[index + 1];
+    return currentPosition >= line.startTime && currentPosition < nextLine.startTime;
+  }
+
+  bool _isUpcomingLyricsLine(LyricsLine line, double currentPosition) {
+    return line.startTime > currentPosition && line.startTime <= currentPosition + 10;
   }
 
   Widget _buildDesktopLayout() {
@@ -1109,8 +1622,14 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   }
 
   Widget _buildDesktopActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    final networkClient = MusicNetworkClient();
+    final isConnected = networkClient.isConnected;
+    
+    return Wrap(
+      alignment: WrapAlignment.spaceEvenly,
+      runAlignment: WrapAlignment.center,
+      spacing: 12,
+      runSpacing: 8,
       children: [
         _buildCompactActionButton(
           icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
@@ -1143,6 +1662,20 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
           color: Colors.white.withOpacity(0.8),
           onTap: _showPlaylistManagement,
         ),
+        if (isConnected && _controller.currentTrack != null)
+          _buildCompactActionButton(
+            icon: Icons.send_rounded,
+            label: 'Send Track',
+            color: Colors.orange,
+            onTap: _sendCurrentTrackToRemote,
+          ),
+        if (isConnected && _controller.queue.isNotEmpty)
+          _buildCompactActionButton(
+            icon: Icons.playlist_play_rounded,
+            label: 'Send Queue',
+            color: Colors.orange,
+            onTap: _sendQueueToRemote,
+          ),
       ],
     );
   }
@@ -1531,45 +2064,59 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   }
 
   Widget _buildActionButtons() {
+    final networkClient = MusicNetworkClient();
+    final isConnected = networkClient.isConnected;
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildActionButton(
-          icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-          label: _isLiked ? 'Liked' : 'Like',
-          color: _isLiked ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.8),
-          onTap: _toggleLike,
+        Expanded(
+          child: _buildActionButton(
+            icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            label: _isLiked ? 'Liked' : 'Like',
+            color: _isLiked ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.8),
+            onTap: _toggleLike,
+          ),
         ),
-        _buildActionButton(
-          icon: _isDownloading 
-              ? Icons.downloading // Use a different icon for loading state
-              : (Platform.isWindows 
-                  ? Icons.download_outlined 
-                  : (_isDownloaded ? Icons.download_done_rounded : Icons.download_rounded)),
-          label: _isDownloading 
-              ? 'Starting...'
-              : (Platform.isWindows 
-                  ? 'Coming Soon' 
-                  : (_isDownloaded ? 'Downloaded' : 'Download')),
-          color: _isDownloading
-              ? const Color(0xFF6366F1)
-              : (Platform.isWindows 
-                  ? Colors.grey.withOpacity(0.6) 
-                  : (_isDownloaded ? Colors.green : Colors.white.withOpacity(0.8))),
-          onTap: _isDownloading ? null : _downloadTrack,
-          isLoading: _isDownloading,
+        const SizedBox(width: 6),
+        Expanded(
+          child: _buildActionButton(
+            icon: _isDownloading 
+                ? Icons.downloading // Use a different icon for loading state
+                : (Platform.isWindows 
+                    ? Icons.download_outlined 
+                    : (_isDownloaded ? Icons.download_done_rounded : Icons.download_rounded)),
+            label: _isDownloading 
+                ? 'Starting...'
+                : (Platform.isWindows 
+                    ? 'Coming Soon' 
+                    : (_isDownloaded ? 'Downloaded' : 'Download')),
+            color: _isDownloading
+                ? const Color(0xFF6366F1)
+                : (Platform.isWindows 
+                    ? Colors.grey.withOpacity(0.6) 
+                    : (_isDownloaded ? Colors.green : Colors.white.withOpacity(0.8))),
+            onTap: _isDownloading ? null : _downloadTrack,
+            isLoading: _isDownloading,
+          ),
         ),
-        _buildActionButton(
-          icon: Icons.playlist_add_rounded,
-          label: 'Playlists',
-          color: Colors.white.withOpacity(0.8),
-          onTap: _showPlaylistManagement,
+        const SizedBox(width: 6),
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.playlist_add_rounded,
+            label: 'Playlists',
+            color: Colors.white.withOpacity(0.8),
+            onTap: _showPlaylistManagement,
+          ),
         ),
-        _buildActionButton(
-          icon: Icons.queue_music_rounded,
-          label: 'Queue',
-          color: Colors.white.withOpacity(0.8),
-          onTap: _showQueueView,
+        const SizedBox(width: 6),
+        Expanded(
+          child: _buildActionButton(
+            icon: isConnected ? Icons.share_rounded : Icons.queue_music_rounded,
+            label: isConnected ? 'Share with' : 'Queue',
+            color: isConnected ? Colors.orange : Colors.white.withOpacity(0.8),
+            onTap: isConnected ? _showShareDrawer : _showQueueView,
+          ),
         ),
       ],
     );
@@ -1590,10 +2137,9 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         splashColor: color.withOpacity(0.2),
         highlightColor: color.withOpacity(0.1),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
           constraints: const BoxConstraints(
-            minWidth: 70,
-            minHeight: 60,
+            minHeight: 50,
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -1608,10 +2154,10 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             children: [
               if (isLoading)
                 const SizedBox(
-                  width: 24,
-                  height: 24,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
+                    strokeWidth: 2,
                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
                   ),
                 )
@@ -1619,14 +2165,14 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
                 Icon(
                   icon,
                   color: color,
-                  size: 24,
+                  size: 20,
                 ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
                   color: color,
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                   fontFamily: 'CascadiaCode',
                 ),
@@ -1976,6 +2522,114 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _sendCurrentTrackToRemote() async {
+    if (_controller.currentTrack == null) return;
+    
+    final networkClient = MusicNetworkClient();
+    if (!networkClient.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not connected to any device'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final success = await networkClient.remotePlayTrack(_controller.currentTrack!);
+    
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success 
+            ? 'Playing "${_controller.currentTrack!.title}" on ${networkClient.connectedDevice?.name}'
+            : 'Failed to play track on remote device'),
+        backgroundColor: success ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _sendQueueToRemote() async {
+    if (_controller.queue.isEmpty) return;
+    
+    final networkClient = MusicNetworkClient();
+    if (!networkClient.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not connected to any device'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show dialog to select how to send
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text(
+          'Send Queue',
+          style: TextStyle(color: Colors.white, fontFamily: 'CascadiaCode'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Send ${_controller.queue.length} tracks to ${networkClient.connectedDevice?.name}?',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Choose how to send:',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'replace'),
+            child: const Text('Replace Queue', style: TextStyle(color: Colors.orange)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'add'),
+            child: const Text('Add to Queue', style: TextStyle(color: Colors.orange)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null) return;
+
+    bool success = false;
+    if (result == 'replace') {
+      // Calculate start index based on current track
+      final startIndex = _controller.currentIndex >= 0 ? _controller.currentIndex : 0;
+      success = await networkClient.remotePlayPlaylist(_controller.queue, 
+          startIndex: startIndex, replaceQueue: true);
+    } else if (result == 'add') {
+      success = await networkClient.remoteAddToQueue(_controller.queue);
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success 
+            ? 'Sent ${_controller.queue.length} tracks to remote device'
+            : 'Failed to send queue to remote device'),
+        backgroundColor: success ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

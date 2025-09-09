@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import '../models/music_model.dart';
 import '../services/youtube_search_service.dart';
 import '../services/search_history_service.dart';
+import '../services/music_network_client.dart';
 import '../controllers/music_player_controller.dart';
 import '../utils/app_colors.dart';
 import 'dart:async';
@@ -617,13 +618,18 @@ class _SearchPageState extends State<SearchPage> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-          child: Text(
-            'Found ${_searchResults.length} results for "$_lastQuery"',
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-              fontFamily: 'CascadiaCode',
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Found ${_searchResults.length} results for "$_lastQuery"',
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 14,
+                  fontFamily: 'CascadiaCode',
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -786,6 +792,9 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _showTrackOptions(MusicTrack track) {
+    final networkClient = MusicNetworkClient();
+    final isConnected = networkClient.isConnected;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -797,6 +806,7 @@ class _SearchPageState extends State<SearchPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Play locally
             MouseRegion(
               cursor: SystemMouseCursors.click,
               child: ListTile(
@@ -815,6 +825,90 @@ class _SearchPageState extends State<SearchPage> {
                 hoverColor: AppColors.cardBackground.withOpacity(0.5),
               ),
             ),
+            // Add to local queue
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: ListTile(
+                leading: const Icon(Icons.playlist_add, color: AppColors.textPrimary),
+                title: const Text(
+                  'Add to Queue', 
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontFamily: 'CascadiaCode',
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  MusicPlayerController().addToQueue(track);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Added "${track.title}" to queue'),
+                      backgroundColor: AppColors.accent,
+                    ),
+                  );
+                },
+                hoverColor: AppColors.cardBackground.withOpacity(0.5),
+              ),
+            ),
+            // Network options (only show if connected)
+            if (isConnected) ...[
+              const Divider(color: AppColors.textMuted),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: ListTile(
+                  leading: const Icon(Icons.send, color: AppColors.accent),
+                  title: Text(
+                    'Play on ${networkClient.connectedDevice?.name ?? "Remote Device"}', 
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontFamily: 'CascadiaCode',
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final success = await networkClient.remotePlayTrack(track);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(success 
+                            ? 'Playing "${track.title}" on remote device'
+                            : 'Failed to play on remote device'),
+                        backgroundColor: success ? AppColors.accent : Colors.red,
+                      ),
+                    );
+                  },
+                  hoverColor: AppColors.cardBackground.withOpacity(0.5),
+                ),
+              ),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: ListTile(
+                  leading: const Icon(Icons.playlist_add, color: AppColors.accent),
+                  title: Text(
+                    'Add to Remote Queue', 
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontFamily: 'CascadiaCode',
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final success = await networkClient.remoteAddToQueue(track);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(success 
+                            ? 'Added "${track.title}" to remote queue'
+                            : 'Failed to add to remote queue'),
+                        backgroundColor: success ? AppColors.accent : Colors.red,
+                      ),
+                    );
+                  },
+                  hoverColor: AppColors.cardBackground.withOpacity(0.5),
+                ),
+              ),
+            ],
+            // Standard options
             MouseRegion(
               cursor: SystemMouseCursors.click,
               child: ListTile(

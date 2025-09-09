@@ -349,6 +349,128 @@ class MusicNetworkClient extends ChangeNotifier {
     return false;
   }
 
+  // New methods for enhanced control
+  Future<bool> remotePlayTrack(MusicTrack track, {bool addToQueue = false}) async {
+    if (_connectedDevice == null) return false;
+    
+    try {
+      final response = await http.post(
+        Uri.parse('http://${_connectedDevice!.ipAddress}:${_connectedDevice!.port}/api/control/play-track'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'track': track.toJson(),
+          'addToQueue': addToQueue,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          // Update current track info immediately
+          await updateRemoteStatus();
+          return true;
+        }
+      }
+    } catch (e) {
+      print('❌ Failed to play track: $e');
+    }
+    return false;
+  }
+
+  Future<bool> remoteAddToQueue(dynamic tracksOrTrack) async {
+    if (_connectedDevice == null) return false;
+    
+    try {
+      Map<String, dynamic> body;
+      
+      if (tracksOrTrack is MusicTrack) {
+        // Single track
+        body = {'track': tracksOrTrack.toJson()};
+      } else if (tracksOrTrack is List<MusicTrack>) {
+        // Multiple tracks
+        body = {'tracks': tracksOrTrack.map((track) => track.toJson()).toList()};
+      } else {
+        throw ArgumentError('tracksOrTrack must be either MusicTrack or List<MusicTrack>');
+      }
+      
+      final response = await http.post(
+        Uri.parse('http://${_connectedDevice!.ipAddress}:${_connectedDevice!.port}/api/control/add-to-queue'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          // Update queue info
+          await updateRemoteQueue();
+          return true;
+        }
+      }
+    } catch (e) {
+      print('❌ Failed to add to queue: $e');
+    }
+    return false;
+  }
+
+  Future<bool> remoteSetQueue(List<MusicTrack> tracks, {int startIndex = 0, bool autoPlay = true}) async {
+    if (_connectedDevice == null) return false;
+    
+    try {
+      final response = await http.post(
+        Uri.parse('http://${_connectedDevice!.ipAddress}:${_connectedDevice!.port}/api/control/set-queue'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'tracks': tracks.map((track) => track.toJson()).toList(),
+          'startIndex': startIndex,
+          'autoPlay': autoPlay,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          // Update current track and queue info
+          await updateRemoteStatus();
+          await updateRemoteQueue();
+          return true;
+        }
+      }
+    } catch (e) {
+      print('❌ Failed to set queue: $e');
+    }
+    return false;
+  }
+
+  Future<bool> remotePlayPlaylist(List<MusicTrack> tracks, {int startIndex = 0, bool replaceQueue = true}) async {
+    if (_connectedDevice == null) return false;
+    
+    try {
+      final response = await http.post(
+        Uri.parse('http://${_connectedDevice!.ipAddress}:${_connectedDevice!.port}/api/control/play-playlist'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'tracks': tracks.map((track) => track.toJson()).toList(),
+          'startIndex': startIndex,
+          'replaceQueue': replaceQueue,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          // Update current track and queue info
+          await updateRemoteStatus();
+          await updateRemoteQueue();
+          return true;
+        }
+      }
+    } catch (e) {
+      print('❌ Failed to play playlist: $e');
+    }
+    return false;
+  }
+
   Future<void> updateRemoteQueue() async {
     if (_connectedDevice == null) return;
     

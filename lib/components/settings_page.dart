@@ -130,6 +130,22 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   );
                 },
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'BETA',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'CascadiaCode',
+                    ),
+                  ),
+                ),
               ),
               _buildSettingsItem(
                 icon: Icons.history,
@@ -159,47 +175,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     );
                   },
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          // Notifications section - display only for now
-          _buildSettingsSection(
-            title: 'Notifications',
-            items: [
-              _buildSettingsItem(
-                icon: Icons.notifications,
-                title: 'Push Notifications',
-                subtitle: 'Coming soon - notification preferences',
-                onTap: () {
-                  // Show coming soon message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Notification settings coming soon!',
-                        style: TextStyle(fontFamily: 'CascadiaCode'),
-                      ),
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                },
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Soon',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'CascadiaCode',
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 16),

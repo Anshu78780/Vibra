@@ -89,7 +89,7 @@ class _LikedSongsPageState extends State<LikedSongsPage>
           ),
         ),
         content: Text(
-          'This will download ${_likedSongs.length} liked songs. Downloads will happen in the background.\n\nNote: Downloads require mobile data or Wi-Fi.',
+          'This will download ${_likedSongs.length} liked songs${Platform.isAndroid ? ' to Downloads/Vibra/' : ''}. Downloads will happen in the background.\n\nNote: Downloads require mobile data or Wi-Fi and storage permission.',
           style: const TextStyle(
             color: AppColors.textSecondary,
             fontFamily: 'CascadiaCode',
@@ -138,14 +138,25 @@ class _LikedSongsPageState extends State<LikedSongsPage>
         await _downloadService.downloadAllTracks(_likedSongs, maxConcurrent: 2);
       } catch (e) {
         if (mounted) {
+          setState(() {
+            _isDownloadingLikedSongs = false;
+          });
+          
+          // Show different error messages based on the error type
+          String errorMessage = 'Failed to start downloads: $e';
+          if (e.toString().contains('permission')) {
+            errorMessage = 'Storage permission required. Please grant permission in Settings to download music.';
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to start downloads: $e',
+                errorMessage,
                 style: const TextStyle(fontFamily: 'CascadiaCode'),
               ),
               backgroundColor: AppColors.error,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
             ),
           );
         }

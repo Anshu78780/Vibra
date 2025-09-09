@@ -394,7 +394,24 @@ class MusicPlayerController extends ChangeNotifier {
       
       notifyListeners();
 
-      // Extract video ID from YouTube URL
+      // Check if this is a local file (starts with file:// or is a local path)
+      if (track.webpageUrl.startsWith('file://') || track.webpageUrl.startsWith('/') || track.webpageUrl.contains('\\')) {
+        print('🎵 Playing local file: ${track.webpageUrl}');
+        
+        // Check if we're still the pending track (no newer requests came in)
+        if (_isTrackLoadingCancelled(track)) {
+          print('⏹️ Cancelling playback because newer track was requested (before local file play)');
+          return;
+        }
+        
+        _setLoading(true, 'Loading local file...');
+        
+        // For local files, use the webpageUrl directly as the audio URL
+        await _playAudioUrl(track, track.webpageUrl);
+        return;
+      }
+
+      // Extract video ID from YouTube URL for online tracks
       final videoId = _extractVideoId(track.webpageUrl);
       if (videoId == null) {
         throw Exception('Invalid YouTube URL');
@@ -464,60 +481,8 @@ class MusicPlayerController extends ChangeNotifier {
         }
       }
       
-      _setLoading(true, 'Preparing playback...');
-      
-      // Double-check that playback is stopped (redundant but ensures clean state)
-      if (_audioPlayer.playing) {
-        print('⏹️ Double-checking that playback is stopped');
-        await _audioPlayer.stop();
-        // Small delay to ensure the audio system has time to respond
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-      
-      // Check again if cancelled before setting audio source
-      if (_isTrackLoadingCancelled(track)) {
-        print('⏹️ Cancelling playback because newer track was requested (before setting audio source)');
-        return;
-      }
-      
-  // Prepare lock screen metadata early (even before play)
-  final preItem = _toMediaItem(track);
-  await _audioHandler?.updateMediaItem(preItem);
-
-  // Set the audio source
-      print('🔊 Setting audio URL');
-      await _audioPlayer.setUrl(audioUrl);
-      
-      // Final check before starting playback
-      if (_isTrackLoadingCancelled(track)) {
-        print('⏹️ Cancelling playback because newer track was requested (after setting URL but before play)');
-        return;
-      }
-      
-      print('▶️ Starting playback');
-      // Start playback
-      await _audioPlayer.play();
-      print('✅ Playback started successfully');
-      
-      // Add track to history when playback starts successfully
-      try {
-        await SongHistoryService().addToHistory(track);
-        print('📝 Added track to history: ${track.title}');
-      } catch (e) {
-        print('⚠️ Failed to add track to history: $e');
-      }
-
-  // Update metadata with actual duration after setUrl
-  final item = _toMediaItem(track, duration: _audioPlayer.duration);
-  await _audioHandler?.updateMediaItem(item);
-      
-  // Additional Windows media control refresh - immediate and forced
-  if (Platform.isWindows) {
-    await _refreshWindowsMediaControls();
-    // Force show with a small delay to ensure it sticks
-    await Future.delayed(const Duration(milliseconds: 300));
-    await WindowsMediaService.instance.forceShow();
-  }
+      // Use the common playback method
+      await _playAudioUrl(track, audioUrl);
       
     } catch (e) {
       _setLoading(false, '');
@@ -658,6 +623,12 @@ class MusicPlayerController extends ChangeNotifier {
   Future<void> _loadRecommendationsEarly(MusicTrack track) async {
     print('🎯 BACKGROUND: Starting _loadRecommendationsInBackground for: ${track.title}');
     try {
+      // Skip recommendations for local files
+      if (track.webpageUrl.startsWith('file://') || track.webpageUrl.startsWith('/') || track.webpageUrl.contains('\\')) {
+        print('🎵 Skipping recommendations for local file: ${track.title}');
+        return;
+      }
+      
       final videoId = _extractVideoId(track.webpageUrl);
       print('🎯 BACKGROUND: Extracted video ID: $videoId');
       if (videoId == null) {
@@ -1007,6 +978,64 @@ class MusicPlayerController extends ChangeNotifier {
     );
     final match = regExp.firstMatch(url);
     return match?.group(1);
+  }
+
+  /// Common method to play audio from a URL (local or remote)
+  Future<void> _playAudioUrl(MusicTrack track, String audioUrl) async {
+    _setLoading(true, 'Preparing playback...');
+    
+    // Double-check that playback is stopped (redundant but ensures clean state)
+    if (_audioPlayer.playing) {
+      print('⏹️ Double-checking that playback is stopped');
+      await _audioPlayer.stop();
+      // Small delay to ensure the audio system has time to respond
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
+    // Check again if cancelled before setting audio source
+    if (_isTrackLoadingCancelled(track)) {
+      print('⏹️ Cancelling playback because newer track was requested (before setting audio source)');
+      return;
+    }
+    
+    // Prepare lock screen metadata early (even before play)
+    final preItem = _toMediaItem(track);
+    await _audioHandler?.updateMediaItem(preItem);
+
+    // Set the audio source
+    print('🔊 Setting audio URL: ${audioUrl.length > 100 ? audioUrl.substring(0, 100) + '...' : audioUrl}');
+    await _audioPlayer.setUrl(audioUrl);
+    
+    // Final check before starting playback
+    if (_isTrackLoadingCancelled(track)) {
+      print('⏹️ Cancelling playback because newer track was requested (after setting URL but before play)');
+      return;
+    }
+    
+    print('▶️ Starting playback');
+    // Start playback
+    await _audioPlayer.play();
+    print('✅ Playback started successfully');
+    
+    // Add track to history when playback starts successfully
+    try {
+      await SongHistoryService().addToHistory(track);
+      print('📝 Added track to history: ${track.title}');
+    } catch (e) {
+      print('⚠️ Failed to add track to history: $e');
+    }
+
+    // Update metadata with actual duration after setUrl
+    final item = _toMediaItem(track, duration: _audioPlayer.duration);
+    await _audioHandler?.updateMediaItem(item);
+    
+    // Additional Windows media control refresh - immediate and forced
+    if (Platform.isWindows) {
+      await _refreshWindowsMediaControls();
+      // Force show with a small delay to ensure it sticks
+      await Future.delayed(const Duration(milliseconds: 300));
+      await WindowsMediaService.instance.forceShow();
+    }
   }
 
   String get formattedPosition {

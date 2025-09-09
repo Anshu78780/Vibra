@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
 import '../models/music_model.dart';
 import '../services/download_service.dart';
 import '../controllers/music_player_controller.dart';
@@ -45,7 +46,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   Future<void> _loadDownloadedTracks() async {
     try {
-      final tracks = await _downloadService.getDownloadedTracks();
+      // Try to load downloads without requesting permissions first
+      // This allows viewing existing downloads without permission prompts
+      final tracks = await _downloadService.getDownloadedTracksWithoutPermissionCheck();
       if (mounted) {
         setState(() {
           _downloadedTracks = tracks;
@@ -70,6 +73,21 @@ class _DownloadsPageState extends State<DownloadsPage> {
       }
     } catch (e) {
       print('Error loading downloaded tracks: $e');
+      
+      // Only show permission dialog if the error suggests permission issues
+      // and we're on Android
+      if (Platform.isAndroid && 
+          e.toString().toLowerCase().contains('permission') &&
+          !(await _downloadService.hasStoragePermissions())) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          _showPermissionDialog();
+          return;
+        }
+      }
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -90,6 +108,68 @@ class _DownloadsPageState extends State<DownloadsPage> {
         _isInitialLoad = false;
       }
     }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text(
+          'Storage Permission Required',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'CascadiaCode',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          'Vibra needs storage permission to access your music downloads folder. This permission is only required to view your downloaded files.',
+          style: TextStyle(
+            color: Color(0xFF999999),
+            fontFamily: 'CascadiaCode',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Just close the dialog and stay on the downloads page
+              // Users can still navigate away manually if they want
+            },
+            child: const Text(
+              'Not Now',
+              style: TextStyle(
+                color: Color(0xFF999999),
+                fontFamily: 'CascadiaCode',
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Request permissions and try to load downloads again
+              if (Platform.isAndroid) {
+                final hasPermissions = await _downloadService.hasStoragePermissions();
+                if (!hasPermissions) {
+                  // This will trigger the system permission dialog
+                  await _downloadService.getDownloadedTracks();
+                }
+              }
+              await _loadDownloadedTracks();
+            },
+            child: const Text(
+              'Grant Permission',
+              style: TextStyle(
+                color: Color(0xFF6366F1),
+                fontFamily: 'CascadiaCode',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deleteDownload(MusicTrack track) async {
@@ -220,12 +300,15 @@ class _DownloadsPageState extends State<DownloadsPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Download songs to listen offline',
+                Platform.isAndroid 
+                    ? 'Download songs to Downloads/Vibra/ for offline listening'
+                    : 'Download songs to listen offline',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 14,
                   fontFamily: 'CascadiaCode',
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               Text(
@@ -349,9 +432,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                       );
                                     },
                                   )
-                                : const Icon(
-                                    Icons.music_note,
-                                    color: Color(0xFF6366F1),
+                                : Icon(
+                                    track.source == 'local' 
+                                        ? Icons.folder_open
+                                        : Icons.music_note,
+                                    color: track.source == 'local' 
+                                        ? const Color(0xFFFF9500)
+                                        : const Color(0xFF6366F1),
                                     size: 28,
                                   ),
                           ),
@@ -371,15 +458,43 @@ class _DownloadsPageState extends State<DownloadsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                Text(
-                  track.artist,
-                  style: const TextStyle(
-                    color: Color(0xFF999999),
-                    fontSize: 14,
-                    fontFamily: 'CascadiaCode',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        track.artist,
+                        style: const TextStyle(
+                          color: Color(0xFF999999),
+                          fontSize: 14,
+                          fontFamily: 'CascadiaCode',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (track.source == 'local') ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF9500).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: const Color(0xFFFF9500).withOpacity(0.5),
+                          ),
+                        ),
+                        child: const Text(
+                          'LOCAL',
+                          style: TextStyle(
+                            color: Color(0xFFFF9500),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'CascadiaCode',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 if (progress != null && progress < 1.0) ...[
                   const SizedBox(height: 4),
