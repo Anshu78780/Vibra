@@ -10,6 +10,7 @@ import '../services/music_network_client.dart';
 import '../services/lyrics_service.dart';
 import '../models/music_model.dart';
 import '../models/lyrics_model.dart';
+import '../utils/app_colors.dart';
 
 class FullMusicPlayer extends StatefulWidget {
   const FullMusicPlayer({super.key});
@@ -793,11 +794,11 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
         leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -805,7 +806,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
             const Text(
               'Now Playing',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontFamily: 'CascadiaCode',
                 fontSize: 16,
               ),
@@ -814,7 +815,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
               Text(
                 '${_controller.currentIndex + 1} of ${_controller.queue.length}',
                 style: const TextStyle(
-                  color: Colors.white54,
+                  color: AppColors.textSecondary,
                   fontFamily: 'CascadiaCode',
                   fontSize: 12,
                 ),
@@ -825,7 +826,7 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
+            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
             onPressed: () => _showOptions(),
           ),
         ],
@@ -854,13 +855,13 @@ class _FullMusicPlayerState extends State<FullMusicPlayer> with TickerProviderSt
           Icon(
             Icons.music_off,
             size: 64,
-            color: Color(0xFF666666),
+            color: AppColors.textMuted,
           ),
           SizedBox(height: 16),
           Text(
             'No track playing',
             style: TextStyle(
-              color: Color(0xFF999999),
+              color: AppColors.textMuted,
               fontSize: 16,
               fontFamily: 'CascadiaCode',
             ),

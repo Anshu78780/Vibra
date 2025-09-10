@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import '../controllers/music_player_controller.dart';
 import '../components/universal_loader.dart';
 import '../services/windows_media_service.dart';
+import '../utils/app_colors.dart';
 import 'full_music_player.dart';
 
 class MiniMusicPlayer extends StatefulWidget {
@@ -280,6 +281,21 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
   
 
   Widget _buildMobileMiniPlayer() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final isSmallScreen = screenWidth < 360;
+    
+    // Responsive sizing
+    final playerHeight = isTablet ? 80.0 : (isSmallScreen ? 68.0 : 72.0);
+    final artworkSize = isTablet ? 60.0 : (isSmallScreen ? 48.0 : 52.0);
+    final horizontalMargin = isTablet ? 20.0 : (isSmallScreen ? 8.0 : 12.0);
+    final horizontalPadding = isTablet ? 20.0 : (isSmallScreen ? 12.0 : 16.0);
+    final verticalPadding = isTablet ? 12.0 : 10.0;
+    final titleFontSize = isTablet ? 16.0 : (isSmallScreen ? 14.0 : 15.0);
+    final artistFontSize = isTablet ? 14.0 : (isSmallScreen ? 12.0 : 13.0);
+    final controlButtonSize = isTablet ? 26.0 : (isSmallScreen ? 20.0 : 22.0);
+    final primaryButtonSize = isTablet ? 28.0 : (isSmallScreen ? 22.0 : 24.0);
+    
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -290,20 +306,13 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
         );
       },
       child: Container(
-        height: 72,
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        height: playerHeight,
+        margin: EdgeInsets.symmetric(horizontal: horizontalMargin, vertical: 6),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF2A2A2E),
-              Color(0xFF1C1C1E),
-            ],
-          ),
+          gradient: AppColors.backgroundLinearGradient,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: const Color(0xFF3A3A3E),
+            color: AppColors.cardBackground,
             width: 0.8,
           ),
           boxShadow: [
@@ -315,16 +324,16 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
           child: Row(
             children: [
-              // Album artwork with glow effect
+              // Responsive album artwork with glow effect
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6366F1).withOpacity(0.3),
+                      color: AppColors.primary.withOpacity(0.3),
                       blurRadius: 8,
                       spreadRadius: 0,
                     ),
@@ -335,46 +344,42 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                   child: _controller.currentTrack!.thumbnail.isNotEmpty
                       ? Image.network(
                           _controller.currentTrack!.thumbnail,
-                          width: 52,
-                          height: 52,
+                          width: artworkSize,
+                          height: artworkSize,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
-                              width: 52,
-                              height: 52,
+                              width: artworkSize,
+                              height: artworkSize,
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF3A3A3E), Color(0xFF2C2C2E)],
-                                ),
+                                color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.music_note_rounded,
-                                color: Color(0xFF999999),
-                                size: 24,
+                                color: AppColors.textMuted,
+                                size: artworkSize * 0.45,
                               ),
                             );
                           },
                         )
                       : Container(
-                          width: 52,
-                          height: 52,
+                          width: artworkSize,
+                          height: artworkSize,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF3A3A3E), Color(0xFF2C2C2E)],
-                            ),
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.music_note_rounded,
-                            color: Color(0xFF999999),
-                            size: 24,
+                            color: AppColors.textMuted,
+                            size: artworkSize * 0.45,
                           ),
                         ),
                 ),
               ),
-              const SizedBox(width: 16),
-              // Track info with better typography
+              SizedBox(width: isTablet ? 20 : 16),
+              // Responsive track info with better typography
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,9 +387,9 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                   children: [
                     Text(
                       _controller.currentTrack!.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: titleFontSize,
                         fontWeight: FontWeight.w600,
                         fontFamily: 'CascadiaCode',
                         letterSpacing: 0.2,
@@ -396,8 +401,8 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                     Text(
                       _controller.currentTrack!.artist,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 13,
+                        color: AppColors.textMuted,
+                        fontSize: artistFontSize,
                         fontFamily: 'CascadiaCode',
                         letterSpacing: 0.1,
                       ),
@@ -407,16 +412,16 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                   ],
                 ),
               ),
-              // Enhanced control buttons with better styling
+              // Enhanced responsive control buttons
               if (_controller.isLoading)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(isTablet ? 16 : 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3A3A3E).withOpacity(0.5),
+                    color: AppColors.surface.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(25),
                   ),
-                  child: const UniversalLoader(
-                    size: 20,
+                  child: UniversalLoader(
+                    size: isTablet ? 24 : 20,
                     showMessage: false,
                   ),
                 )
@@ -426,27 +431,27 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                     _controller.retry();
                   },
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(isTablet ? 16 : 12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.2),
+                      color: AppColors.warning.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.warning.withOpacity(0.3)),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.refresh_rounded,
-                      color: Colors.orange,
-                      size: 20,
+                      color: AppColors.warning,
+                      size: isTablet ? 24 : 20,
                     ),
                   ),
                 )
               else
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 12 : 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2E).withOpacity(0.8),
+                    color: AppColors.surface.withOpacity(0.8),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: const Color(0xFF3A3A3E),
+                      color: AppColors.cardBackground,
                       width: 0.5,
                     ),
                   ),
@@ -460,23 +465,21 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                             ? () => _controller.playPrevious()
                             : null,
                         isEnabled: _controller.hasPrevious && _controller.canControl,
-                        size: 22,
+                        size: controlButtonSize,
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: isTablet ? 6 : 4),
                       // Play/Pause button (highlighted)
                       Container(
                         decoration: BoxDecoration(
                           gradient: _controller.canControl 
-                              ? const LinearGradient(
-                                  colors: [Color(0xFF6366F1), Color(0xFF991B1B)],
-                                )
+                              ? AppColors.primaryLinearGradient
                               : null,
-                          color: _controller.canControl ? null : const Color(0xFF4A4A4E),
-                          borderRadius: BorderRadius.circular(20),
+                          color: _controller.canControl ? null : AppColors.surface,
+                          borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
                           boxShadow: _controller.canControl ? [
                             BoxShadow(
-                              color: const Color(0xFF6366F1).withOpacity(0.4),
-                              blurRadius: 8,
+                              color: AppColors.primary.withOpacity(0.4),
+                              blurRadius: 6,
                               spreadRadius: 1,
                             ),
                           ] : null,
@@ -499,11 +502,11 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                             }
                           } : null,
                           isEnabled: _controller.canControl,
-                          size: 24,
+                          size: primaryButtonSize,
                           isPrimary: true,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: isTablet ? 6 : 4),
                       // Next button
                       _buildControlButton(
                         icon: Icons.skip_next_rounded,
@@ -511,7 +514,7 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
                             ? () => _controller.playNext()
                             : null,
                         isEnabled: _controller.hasNext && _controller.canControl,
-                        size: 22,
+                        size: controlButtonSize,
                       ),
                     ],
                   ),
@@ -537,8 +540,8 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
         child: Icon(
           icon,
           color: isEnabled 
-              ? (isPrimary ? Colors.white : Colors.white.withOpacity(0.9))
-              : Colors.white.withOpacity(0.3),
+              ? (isPrimary ? AppColors.textPrimary : AppColors.textSecondary)
+              : AppColors.textMuted,
           size: size,
         ),
       ),
@@ -559,8 +562,8 @@ class _MiniMusicPlayerState extends State<MiniMusicPlayer> {
         child: Icon(
           icon,
           color: isEnabled 
-              ? (isPrimary ? Colors.white : Colors.white.withOpacity(0.9))
-              : Colors.white.withOpacity(0.3),
+              ? (isPrimary ? AppColors.textPrimary : AppColors.textSecondary)
+              : AppColors.textMuted,
           size: size,
         ),
       ),

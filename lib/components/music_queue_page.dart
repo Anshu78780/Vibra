@@ -11,6 +11,7 @@ import '../controllers/music_player_controller.dart';
 import '../services/liked_songs_service.dart';
 import '../services/liked_playlists_service.dart';
 import '../services/queue_playlist_service.dart';
+import '../utils/app_colors.dart';
 import 'mini_music_player.dart';
 
 class MusicQueuePage extends StatefulWidget {
@@ -267,20 +268,15 @@ Cache Debug Info:
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // Black background
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: AppColors.background,
         title: ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [
-              Color(0xFF1DB954), // Spotify green
-              Color(0xFF1ED760), // Lighter green
-            ],
-          ).createShader(bounds),
+          shaderCallback: (bounds) => AppColors.primaryLinearGradient.createShader(bounds),
           child: const Text(
             'ViBra',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.bold,
               fontFamily: 'CascadiaCode',
               fontSize: 22,
@@ -305,7 +301,7 @@ Cache Debug Info:
                   'Refreshing with latest data...',
                   style: TextStyle(fontFamily: 'CascadiaCode'),
                 ),
-                backgroundColor: const Color(0xFF1C1C1E),
+                backgroundColor: AppColors.surface,
                 duration: Duration(seconds: 1),
                 behavior: SnackBarBehavior.floating,
               ),
@@ -317,8 +313,8 @@ Cache Debug Info:
             _fetchFreshPlaylistsData(),
           ]);
         },
-        backgroundColor: const Color(0xFF1E1E1E), // Dark background
-        color: const Color(0xFF1DB954), // Spotify green
+        backgroundColor: AppColors.surface,
+        color: AppColors.primary,
         strokeWidth: 3,
         displacement: 40,
         child: _buildBody(),
@@ -333,14 +329,14 @@ Cache Debug Info:
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              color: const Color(0xFF1DB954), // Spotify green
+              color: AppColors.primary,
               strokeWidth: 3,
             ),
             const SizedBox(height: 16),
             Text(
               'Loading content...',
               style: const TextStyle(
-                color: Color(0xFFCCCCCC),
+                color: AppColors.textSecondary,
                 fontFamily: 'CascadiaCode',
               ),
             ),
@@ -362,7 +358,7 @@ Cache Debug Info:
           // Divider
           Container(
             width: 1,
-            color: const Color(0xFF2A2A2A), // Darker divider
+            color: AppColors.surface.withOpacity(0.3),
             margin: const EdgeInsets.symmetric(vertical: 16),
           ),
           // Right half - Music with mini player
@@ -405,7 +401,7 @@ Cache Debug Info:
           child: Text(
             'Trending Playlists',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
               fontFamily: 'CascadiaCode',
@@ -421,14 +417,14 @@ Cache Debug Info:
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const CircularProgressIndicator(
-                    color: Color(0xFF1DB954), // Spotify green
+                    color: AppColors.primary,
                     strokeWidth: 2,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Loading playlists...',
                     style: const TextStyle(
-                      color: Color(0xFFB3B3B3),
+                      color: AppColors.textMuted,
                       fontFamily: 'CascadiaCode',
                       fontSize: 12,
                     ),
@@ -445,12 +441,12 @@ Cache Debug Info:
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error, color: Colors.red, size: 32),
+                  const Icon(Icons.error, color: AppColors.error, size: 32),
                   const SizedBox(height: 8),
                   const Text(
                     'Failed to load playlists',
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: AppColors.textSecondary,
                       fontFamily: 'CascadiaCode',
                       fontSize: 14,
                     ),
@@ -459,8 +455,8 @@ Cache Debug Info:
                   ElevatedButton(
                     onPressed: _fetchFreshPlaylistsData,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1DB954), // Spotify green
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textPrimary,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20), // Rounded pill shape
@@ -483,12 +479,12 @@ Cache Debug Info:
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.playlist_remove, color: Color(0xFF666666), size: 48),
+                  Icon(Icons.playlist_remove, color: AppColors.textMuted, size: 48),
                   SizedBox(height: 12),
                   Text(
                     'No playlists available',
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: AppColors.textSecondary,
                       fontFamily: 'CascadiaCode',
                       fontSize: 14,
                     ),
@@ -545,18 +541,10 @@ Cache Debug Info:
               height: 110,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF6366F1), // Purple
-                    Color(0xFFDC2626), // Red
-                    Color(0xFFEF4444), // Lighter red
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: AppColors.primaryLinearGradient,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.4),
+                    color: AppColors.primary.withOpacity(0.4),
                     blurRadius: 20,
                     spreadRadius: 2,
                     offset: const Offset(0, 8),
@@ -568,7 +556,7 @@ Cache Debug Info:
                 child: Container(
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0xFF121212), // Match main background
+                    color: AppColors.background,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(2.5),
@@ -585,11 +573,11 @@ Cache Debug Info:
                             height: 100,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFF1C1C1E),
+                              color: AppColors.surface,
                             ),
                             child: const Center(
                               child: CircularProgressIndicator(
-                                color: Color(0xFF6366F1), // Purple
+                                color: AppColors.primary,
                                 strokeWidth: 2,
                               ),
                             ),
@@ -601,11 +589,11 @@ Cache Debug Info:
                             height: 100,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFF1C1C1E),
+                              color: AppColors.surface,
                             ),
                             child: const Icon(
                               Icons.playlist_play,
-                              color: Color(0xFF666666),
+                              color: AppColors.textMuted,
                               size: 28,
                             ),
                           );
@@ -621,7 +609,7 @@ Cache Debug Info:
             Text(
               playlist.title,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 fontFamily: 'CascadiaCode',
@@ -725,7 +713,7 @@ Cache Debug Info:
                                 height: isHovered ? 42 : 40,
                                 decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFF1C1C1E),
+                                  color: AppColors.surface,
                                 ),
                                 child: const Center(
                                   child: SizedBox(
@@ -745,7 +733,7 @@ Cache Debug Info:
                                 height: isHovered ? 42 : 40,
                                 decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFF1C1C1E),
+                                  color: AppColors.surface,
                                 ),
                                 child: const Icon(
                                   Icons.playlist_play,
@@ -768,7 +756,7 @@ Cache Debug Info:
                       AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 150),
                         style: TextStyle(
-                          color: isHovered ? Colors.white : Colors.white.withOpacity(0.9),
+                          color: isHovered ? AppColors.textPrimary : AppColors.textPrimary.withOpacity(0.9),
                           fontSize: isHovered ? 15 : 14,
                           fontWeight: FontWeight.w500,
                           fontFamily: 'CascadiaCode',
@@ -785,7 +773,7 @@ Cache Debug Info:
                         style: TextStyle(
                           color: isHovered 
                               ? const Color(0xFF6366F1).withOpacity(0.8)
-                              : Colors.white.withOpacity(0.7),
+                              : AppColors.textPrimary.withOpacity(0.7),
                           fontSize: 12,
                           fontFamily: 'CascadiaCode',
                         ),
@@ -802,8 +790,8 @@ Cache Debug Info:
                   duration: const Duration(milliseconds: 150),
                   style: TextStyle(
                     color: isHovered 
-                        ? Colors.white.withOpacity(0.7) 
-                        : Colors.white.withOpacity(0.5),
+                        ? AppColors.textPrimary.withOpacity(0.7) 
+                        : AppColors.textPrimary.withOpacity(0.5),
                     fontSize: 12,
                     fontFamily: 'CascadiaCode',
                   ),
@@ -822,8 +810,8 @@ Cache Debug Info:
                         child: Icon(
                           Icons.more_vert,
                           color: isHovered 
-                              ? Colors.white.withOpacity(0.8) 
-                              : Colors.white.withOpacity(0.6),
+                              ? AppColors.textPrimary.withOpacity(0.8) 
+                              : AppColors.textPrimary.withOpacity(0.6),
                           size: 16,
                         ),
                       ),
@@ -848,7 +836,7 @@ Cache Debug Info:
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -858,11 +846,11 @@ Cache Debug Info:
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.play_arrow, color: Colors.white),
+              leading: const Icon(Icons.play_arrow, color: AppColors.textPrimary),
               title: const Text(
                 'View Playlist', 
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -877,7 +865,7 @@ Cache Debug Info:
                 title: Text(
                   'Send to ${networkClient.connectedDevice?.name ?? "Remote Device"}',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontFamily: 'CascadiaCode',
                   ),
                 ),
@@ -888,11 +876,11 @@ Cache Debug Info:
               ),
             ],
             ListTile(
-              leading: const Icon(Icons.share, color: Colors.white),
+              leading: const Icon(Icons.share, color: AppColors.textPrimary),
               title: const Text(
                 'Share', 
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -919,7 +907,7 @@ Cache Debug Info:
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Not connected to any device'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -930,14 +918,14 @@ Cache Debug Info:
       context: context,
       barrierDismissible: false,
       builder: (context) => const AlertDialog(
-        backgroundColor: Color(0xFF1C1C1E),
+        backgroundColor: AppColors.surface,
         content: Row(
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 16),
             Text(
               'Loading playlist...',
-              style: TextStyle(color: Colors.white, fontFamily: 'CascadiaCode'),
+              style: TextStyle(color: AppColors.textPrimary, fontFamily: 'CascadiaCode'),
             ),
           ],
         ),
@@ -955,7 +943,7 @@ Cache Debug Info:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Playlist is empty'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
         return;
@@ -965,22 +953,22 @@ Cache Debug Info:
       final result = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF1C1C1E),
+          backgroundColor: AppColors.surface,
           title: const Text(
             'Send Playlist',
-            style: TextStyle(color: Colors.white, fontFamily: 'CascadiaCode'),
+            style: TextStyle(color: AppColors.textPrimary, fontFamily: 'CascadiaCode'),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'Send "${playlist.title}" (${songs.length} songs) to ${networkClient.connectedDevice?.name}?',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Choose how to send:',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -995,7 +983,7 @@ Cache Debug Info:
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
             ),
           ],
         ),
@@ -1016,7 +1004,7 @@ Cache Debug Info:
           content: Text(success 
               ? 'Sent "${playlist.title}" to remote device'
               : 'Failed to send playlist to remote device'),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? AppColors.success : AppColors.error,
         ),
       );
     } catch (e) {
@@ -1025,7 +1013,7 @@ Cache Debug Info:
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to load playlist: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -1040,7 +1028,7 @@ Cache Debug Info:
           child: Text(
             'Trending Music',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
               fontFamily: 'CascadiaCode',
@@ -1055,12 +1043,12 @@ Cache Debug Info:
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error, color: Colors.red, size: 48),
+                  const Icon(Icons.error, color: AppColors.error, size: 48),
                   const SizedBox(height: 16),
                   const Text(
                     'Failed to load music',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'CascadiaCode',
@@ -1070,7 +1058,7 @@ Cache Debug Info:
                   Text(
                     _errorMessage!,
                     style: const TextStyle(
-                      color: Colors.white70,
+                      color: AppColors.textSecondary,
                       fontFamily: 'CascadiaCode',
                     ),
                     textAlign: TextAlign.center,
@@ -1080,7 +1068,7 @@ Cache Debug Info:
                     onPressed: _fetchFreshMusicData,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1DB954), // Spotify green
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.textPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20), // Rounded pill shape
                       ),
@@ -1098,7 +1086,7 @@ Cache Debug Info:
               child: Text(
                 'No music available',
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: AppColors.textSecondary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -1156,7 +1144,7 @@ Cache Debug Info:
                         return Container(
                           width: 56,
                           height: 56,
-                          color: const Color(0xFF1C1C1E),
+                          color: AppColors.surface,
                           child: const Center(
                             child: SizedBox(
                               width: 20,
@@ -1174,7 +1162,7 @@ Cache Debug Info:
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1C1C1E),
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
@@ -1189,7 +1177,7 @@ Cache Debug Info:
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1C1C1E),
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -1207,7 +1195,7 @@ Cache Debug Info:
                   Text(
                     track.title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
                       fontFamily: 'CascadiaCode',
@@ -1308,7 +1296,7 @@ Cache Debug Info:
                             return Container(
                               width: 48,
                               height: 48,
-                              color: const Color(0xFF1C1C1E),
+                              color: AppColors.surface,
                               child: const Center(
                                 child: SizedBox(
                                   width: 16,
@@ -1326,7 +1314,7 @@ Cache Debug Info:
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1C1C1E),
+                                color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Icon(
@@ -1341,7 +1329,7 @@ Cache Debug Info:
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1C1C1E),
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Icon(
@@ -1359,7 +1347,7 @@ Cache Debug Info:
                       AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 150),
                         style: TextStyle(
-                          color: isHovered ? Colors.white : Colors.white.withOpacity(0.9),
+                          color: isHovered ? AppColors.textPrimary : AppColors.textPrimary.withOpacity(0.9),
                           fontSize: isHovered ? 15 : 14,
                           fontWeight: FontWeight.w500,
                           fontFamily: 'CascadiaCode',
@@ -1375,8 +1363,8 @@ Cache Debug Info:
                         duration: const Duration(milliseconds: 150),
                         style: TextStyle(
                           color: isHovered 
-                              ? Colors.white.withOpacity(0.8) 
-                              : Colors.white.withOpacity(0.7),
+                              ? AppColors.textPrimary.withOpacity(0.8) 
+                              : AppColors.textPrimary.withOpacity(0.7),
                           fontSize: 12,
                           fontFamily: 'CascadiaCode',
                         ),
@@ -1393,8 +1381,8 @@ Cache Debug Info:
                   duration: const Duration(milliseconds: 150),
                   style: TextStyle(
                     color: isHovered 
-                        ? Colors.white.withOpacity(0.7) 
-                        : Colors.white.withOpacity(0.5),
+                        ? AppColors.textPrimary.withOpacity(0.7) 
+                        : AppColors.textPrimary.withOpacity(0.5),
                     fontSize: 12,
                     fontFamily: 'CascadiaCode',
                   ),
@@ -1413,8 +1401,8 @@ Cache Debug Info:
                         child: Icon(
                           Icons.more_vert,
                           color: isHovered 
-                              ? Colors.white.withOpacity(0.8) 
-                              : Colors.white.withOpacity(0.6),
+                              ? AppColors.textPrimary.withOpacity(0.8) 
+                              : AppColors.textPrimary.withOpacity(0.6),
                           size: 16,
                         ),
                       ),
@@ -1434,7 +1422,7 @@ Cache Debug Info:
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -1444,11 +1432,11 @@ Cache Debug Info:
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.play_arrow, color: Colors.white),
+              leading: const Icon(Icons.play_arrow, color: AppColors.textPrimary),
               title: const Text(
                 'Play', 
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -1460,12 +1448,12 @@ Cache Debug Info:
             ListTile(
               leading: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border, 
-                color: isLiked ? const Color(0xFF6366F1) : Colors.white
+                color: isLiked ? const Color(0xFF6366F1) : AppColors.textPrimary
               ),
               title: Text(
                 isLiked ? 'Unlike' : 'Like', 
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -1475,11 +1463,11 @@ Cache Debug Info:
               },
             ),
             ListTile(
-              leading: const Icon(Icons.share, color: Colors.white),
+              leading: const Icon(Icons.share, color: AppColors.textPrimary),
               title: const Text(
                 'Share', 
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -1500,7 +1488,7 @@ Cache Debug Info:
           isLiked ? 'Added to liked songs' : 'Removed from liked songs',
           style: const TextStyle(fontFamily: 'CascadiaCode'),
         ),
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: AppColors.surface,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1580,7 +1568,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                   : 'Removed "${widget.playlist.title}" from liked playlists',
               style: const TextStyle(fontFamily: 'CascadiaCode'),
             ),
-            backgroundColor: const Color(0xFF1C1C1E),
+            backgroundColor: AppColors.surface,
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1595,7 +1583,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
               'Failed to update playlist: $e',
               style: const TextStyle(fontFamily: 'CascadiaCode'),
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
           ),
@@ -1612,7 +1600,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
     return Container(
       height: drawerHeight,
       decoration: const BoxDecoration(
-        color: Color(0xFF1C1C1E),
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -1665,7 +1653,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                       Text(
                         widget.playlist.title,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'CascadiaCode',
@@ -1705,7 +1693,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                           : Icons.favorite_border_rounded,
                       color: LikedPlaylistsService.isPlaylistLiked(widget.playlist.playlistId)
                           ? const Color(0xFF6366F1)
-                          : Colors.white,
+                          : AppColors.textPrimary,
                       size: 28,
                     ),
                     style: IconButton.styleFrom(
@@ -1753,7 +1741,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
             Text(
               'Loading songs...',
               style: TextStyle(
-                color: Colors.white70,
+                color: AppColors.textSecondary,
                 fontFamily: 'CascadiaCode',
               ),
             ),
@@ -1767,12 +1755,12 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error, color: Colors.red, size: 48),
+            const Icon(Icons.error, color: AppColors.error, size: 48),
             const SizedBox(height: 16),
             const Text(
               'Failed to load songs',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'CascadiaCode',
@@ -1782,7 +1770,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
             Text(
               _errorMessage!,
               style: const TextStyle(
-                color: Colors.white70,
+                color: AppColors.textSecondary,
                 fontFamily: 'CascadiaCode',
               ),
               textAlign: TextAlign.center,
@@ -1792,7 +1780,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
               onPressed: _fetchPlaylistSongs,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.textPrimary,
               ),
               child: const Text(
                 'Retry',
@@ -1814,7 +1802,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
             Text(
               'No songs in this playlist',
               style: TextStyle(
-                color: Colors.white70,
+                color: AppColors.textSecondary,
                 fontFamily: 'CascadiaCode',
               ),
             ),
@@ -1893,7 +1881,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                   Text(
                     song.title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                       fontFamily: 'CascadiaCode',
@@ -1960,7 +1948,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
               onPressed: () => _playAllSongs(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1984,7 +1972,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
               onPressed: () => _sendAllSongsToRemote(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -2009,7 +1997,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
           onPressed: () => _playAllSongs(),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF6366F1),
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.textPrimary,
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -2036,22 +2024,22 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: AppColors.surface,
         title: const Text(
           'Send Playlist',
-          style: TextStyle(color: Colors.white, fontFamily: 'CascadiaCode'),
+          style: TextStyle(color: AppColors.textPrimary, fontFamily: 'CascadiaCode'),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Send ${_songs.length} songs to ${networkClient.connectedDevice?.name}?',
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(color: AppColors.textMuted),
             ),
             const SizedBox(height: 16),
             const Text(
               'Choose how to send:',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -2066,7 +2054,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
           ),
         ],
       ),
@@ -2087,7 +2075,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
         content: Text(success 
             ? 'Sent ${_songs.length} songs to remote device'
             : 'Failed to send songs to remote device'),
-        backgroundColor: success ? Colors.green : Colors.red,
+        backgroundColor: success ? AppColors.success : AppColors.error,
       ),
     );
   }
@@ -2111,7 +2099,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -2121,11 +2109,11 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.play_arrow, color: Colors.white),
+              leading: const Icon(Icons.play_arrow, color: AppColors.textPrimary),
               title: const Text(
                 'Play', 
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -2141,7 +2129,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                 title: Text(
                   'Play on ${networkClient.connectedDevice?.name ?? "Remote"}',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontFamily: 'CascadiaCode',
                   ),
                 ),
@@ -2154,7 +2142,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                       content: Text(success 
                           ? 'Playing "${song.title}" on remote device'
                           : 'Failed to play on remote device'),
-                      backgroundColor: success ? Colors.green : Colors.red,
+                      backgroundColor: success ? AppColors.success : AppColors.error,
                     ),
                   );
                 },
@@ -2164,7 +2152,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                 title: const Text(
                   'Add to Remote Queue',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontFamily: 'CascadiaCode',
                   ),
                 ),
@@ -2177,7 +2165,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
                       content: Text(success 
                           ? 'Added "${song.title}" to remote queue'
                           : 'Failed to add to remote queue'),
-                      backgroundColor: success ? Colors.green : Colors.red,
+                      backgroundColor: success ? AppColors.success : AppColors.error,
                     ),
                   );
                 },
@@ -2186,12 +2174,12 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
             ListTile(
               leading: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border, 
-                color: isLiked ? const Color(0xFF6366F1) : Colors.white
+                color: isLiked ? const Color(0xFF6366F1) : AppColors.textPrimary
               ),
               title: Text(
                 isLiked ? 'Unlike' : 'Like', 
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -2201,11 +2189,11 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.share, color: Colors.white),
+              leading: const Icon(Icons.share, color: AppColors.textPrimary),
               title: const Text(
                 'Share', 
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontFamily: 'CascadiaCode',
                 ),
               ),
@@ -2226,7 +2214,7 @@ class _PlaylistSongsDrawerState extends State<PlaylistSongsDrawer> {
           isLiked ? 'Added to liked songs' : 'Removed from liked songs',
           style: const TextStyle(fontFamily: 'CascadiaCode'),
         ),
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: AppColors.surface,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

@@ -10,6 +10,7 @@ import 'update_dialog.dart';
 import '../services/liked_songs_service.dart';
 import '../services/update_manager.dart';
 import '../controllers/music_player_controller.dart';
+import '../utils/app_colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -70,7 +71,7 @@ class _HomePageState extends State<HomePage> {
                       'Failed to open download link: $e',
                       style: const TextStyle(fontFamily: 'CascadiaCode'),
                     ),
-                    backgroundColor: const Color(0xFF6366F1),
+                    backgroundColor: AppColors.primary,
                   ),
                 );
               }
@@ -119,7 +120,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: const Color(0xFF1DB954).withOpacity(0.1),
+                    color: AppColors.primary.withOpacity(0.1),
                     width: 1,
                   ),
                 ),
@@ -153,7 +154,7 @@ class _HomePageState extends State<HomePage> {
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(
-                                color: Color(0xFF1DB954),
+                                color: AppColors.primary,
                                 strokeWidth: 2,
                               ),
                             ),
@@ -175,23 +176,16 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildWindowsLayout() {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // Spotify-like dark background
+      backgroundColor: AppColors.background,
       body: Row(
         children: [
           // Side Navigation Rail
           Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1E1E1E), // Darker gradient top
-                  Color(0xFF191414), // Spotify dark
-                ],
-              ),
+              gradient: AppColors.backgroundLinearGradient,
               border: Border(
                 right: BorderSide(
-                  color: const Color(0xFF1DB954).withOpacity(0.1), // Spotify green with opacity
+                  color: AppColors.primary.withOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -209,22 +203,22 @@ class _HomePageState extends State<HomePage> {
                   child: NavigationRail(
                     backgroundColor: Colors.transparent,
                     selectedIconTheme: const IconThemeData(
-                      color: Color(0xFF1DB954), // Spotify green
+                      color: AppColors.primary,
                       size: 26,
                     ),
                     unselectedIconTheme: IconThemeData(
-                      color: const Color(0xFFB3B3B3).withOpacity(0.7), // Spotify gray
+                      color: AppColors.textMuted.withOpacity(0.7),
                       size: 24,
                     ),
                     selectedLabelTextStyle: const TextStyle(
-                      color: Color(0xFF1DB954), // Spotify green
+                      color: AppColors.primary,
                       fontFamily: 'CascadiaCode',
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
                     ),
                     unselectedLabelTextStyle: TextStyle(
-                      color: const Color(0xFFB3B3B3).withOpacity(0.8),
+                      color: AppColors.textMuted.withOpacity(0.8),
                       fontFamily: 'CascadiaCode',
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -269,15 +263,8 @@ class _HomePageState extends State<HomePage> {
           // Main Content Area
           Expanded(
             child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF1E1E1E), // Darker at top
-                    Color(0xFF121212), // Spotify dark at bottom
-                  ],
-                ),
+              decoration: BoxDecoration(
+                gradient: AppColors.backgroundLinearGradient,
               ),
               child: _pages[_currentIndex],
             ),
@@ -289,17 +276,10 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildMobileLayout() {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // Spotify dark background
+      backgroundColor: AppColors.background,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1E1E1E), // Darker at top
-              Color(0xFF121212), // Spotify dark at bottom
-            ],
-          ),
+        decoration: BoxDecoration(
+          gradient: AppColors.backgroundLinearGradient,
         ),
         child: Column(
           children: [
@@ -310,17 +290,10 @@ class _HomePageState extends State<HomePage> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF191414), // Spotify dark
-              Color(0xFF0D0D0D), // Even darker
-            ],
-          ),
+          gradient: AppColors.backgroundLinearGradient,
           border: Border(
             top: BorderSide(
-              color: const Color(0xFF1DB954).withOpacity(0.1), // Spotify green with opacity
+              color: AppColors.primary.withOpacity(0.1),
               width: 1,
             ),
           ),
@@ -334,8 +307,8 @@ class _HomePageState extends State<HomePage> {
         ),
         child: BottomNavigationBar(
           backgroundColor: Colors.transparent,
-          selectedItemColor: const Color(0xFF1DB954), // Spotify green
-          unselectedItemColor: const Color(0xFFB3B3B3).withOpacity(0.7), // Spotify gray
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: AppColors.textMuted.withOpacity(0.7),
           currentIndex: _currentIndex,
           type: BottomNavigationBarType.fixed,
           elevation: 0,
@@ -349,7 +322,7 @@ class _HomePageState extends State<HomePage> {
             fontFamily: 'CascadiaCode',
             fontSize: 10,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFFB3B3B3).withOpacity(0.6),
+            color: AppColors.textMuted.withOpacity(0.6),
           ),
           onTap: (index) {
             setState(() {
@@ -416,7 +389,7 @@ class _AlbumArtContainerState extends State<_AlbumArtContainer> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF1DB954).withOpacity(_isHovered ? 0.4 : 0.2),
+                  color: AppColors.primary.withOpacity(_isHovered ? 0.4 : 0.2),
                   blurRadius: _isHovered ? 12 : 8,
                   spreadRadius: _isHovered ? 2 : 1,
                 ),
@@ -434,10 +407,10 @@ class _AlbumArtContainerState extends State<_AlbumArtContainer> {
                       return Container(
                         width: 48,
                         height: 48,
-                        color: const Color(0xFF2A2A2E),
+                        color: AppColors.surface,
                         child: const Icon(
                           Icons.music_note_rounded,
-                          color: Color(0xFF1DB954),
+                          color: AppColors.primary,
                           size: 24,
                         ),
                       );
@@ -446,10 +419,10 @@ class _AlbumArtContainerState extends State<_AlbumArtContainer> {
                 : Container(
                     width: 48,
                     height: 48,
-                    color: const Color(0xFF2A2A2E),
+                    color: AppColors.surface,
                     child: const Icon(
                       Icons.music_note_rounded,
-                      color: Color(0xFF1DB954),
+                      color: AppColors.primary,
                       size: 24,
                     ),
                   ),
@@ -494,12 +467,12 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: _isHovered 
-                ? const Color(0xFF1DB954).withOpacity(0.1)
+                ? AppColors.primary.withOpacity(0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: _isHovered
                 ? Border.all(
-                    color: const Color(0xFF1DB954).withOpacity(0.3),
+                    color: AppColors.primary.withOpacity(0.3),
                     width: 1,
                   )
                 : null,
@@ -513,8 +486,8 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
                   ? Icons.pause_rounded 
                   : Icons.play_arrow_rounded,
               color: _isHovered 
-                  ? const Color(0xFF1ED760) 
-                  : const Color(0xFF1DB954),
+                  ? AppColors.accent 
+                  : AppColors.primary,
               size: 20,
             ),
           ),
