@@ -86,11 +86,16 @@ class UpdateManager {
       if (name.contains('.apk')) {
         if (fallbackUrl.isEmpty) fallbackUrl = downloadUrl;
         
-        if (name.contains('arm64-v8a')) {
+        // Check for arm64-v8a architecture
+        if (name.contains('arm64-v8a') || name.contains('arm64_v8a')) {
           arm64Url = downloadUrl;
-        } else if (name.contains('armeabi-v7a')) {
+        } 
+        // Check for armeabi-v7a architecture
+        else if (name.contains('armeabi-v7a') || name.contains('armeabi_v7a')) {
           armv7Url = downloadUrl;
-        } else if (name.contains('x86_64')) {
+        } 
+        // Check for x86_64 architecture
+        else if (name.contains('x86_64') || name.contains('x86-64')) {
           x86Url = downloadUrl;
         }
       }

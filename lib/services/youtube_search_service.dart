@@ -8,7 +8,7 @@ class YoutubeSearchService {
   static final YoutubeExplode _yt = YoutubeExplode();
 
   /// Search for music tracks using youtube_explode_dart
-  static Future<SearchResponse> searchMusic(String query, {int limit = 20}) async {
+  static Future<SearchResponse> searchMusic(String query, {int limit = 40}) async {
     if (query.trim().isEmpty) {
       return SearchResponse(
         query: query,
